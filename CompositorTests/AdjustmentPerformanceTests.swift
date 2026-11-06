@@ -147,7 +147,9 @@ struct AdjustmentPerformanceTests {
             ("Tonal Contrast", [adjustment(.tonalContrast)]),
         ]
         for (name, adjustments) in cases { lines.append(String(format: "%@: %.1f ms panning", name, try await panTime(adjustments))) }
+        #if compiler(>=6.2)
         Attachment.record(lines.joined(separator: "\n"), named: "pan-times.txt")
+        #endif
     }
 
     @Test func adjustmentLayerFrameTimes() throws {
@@ -176,6 +178,8 @@ struct AdjustmentPerformanceTests {
             lines.append(String(format: "%@: %.1f ms worked out, %.1f ms kept", name, try frameTime(adjustments),
                                 try frameTime(adjustments, caching: true)))
         }
+        #if compiler(>=6.2)
         Attachment.record(lines.joined(separator: "\n"), named: "frame-times.txt")
+        #endif
     }
 }

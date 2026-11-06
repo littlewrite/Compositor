@@ -1,6 +1,5 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import Sparkle
 
 @main
 struct CompositorApp: App {
@@ -111,7 +110,9 @@ struct CompositorApp: App {
                 // Grouped: a commands builder takes at most ten items.
                 Group {
                     CommandGroup(after: .appInfo) {
-                        Button("Check for Updates…") { applicationDelegate.updater.checkForUpdates() }
+                        #if canImport(Sparkle)
+                        Button("Check for Updates…") { applicationDelegate.checkForUpdates() }
+                        #endif
                     }
                     CommandGroup(after: .toolbar) {
                         Button("Search Commands…") {

@@ -113,6 +113,7 @@ private struct GIFLayerTimelineState {
     var isPlaying = false
 }
 
+@MainActor
 @Observable
 final class EditorSession {
     var skipsInitialClipboardCanvasSize = false

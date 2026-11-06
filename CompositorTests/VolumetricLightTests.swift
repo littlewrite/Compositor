@@ -196,7 +196,9 @@ struct VolumetricLightTests {
             _ = try PixelFilter.run(FilterJob(kind: .volumetricLight, image: image, settings: settings, scale: 1, selection: nil, mapping: .identity))
             times.append(Date().timeIntervalSince(start) * 1000)
         }
+        #if compiler(>=6.2)
         Attachment.record("\(image.width)x\(image.height) ms per Haze step: \(times.map { Int($0) }) depth \(DepthModel.isReady)", named: "timing.txt")
+        #endif
     }
 
     @Test func zeroIntensityAndHazeLeaveTheImage() throws {
@@ -227,7 +229,9 @@ struct VolumetricLightTests {
                 let destination = try #require(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
                 CGImageDestinationAddImage(destination, map, nil)
                 CGImageDestinationFinalize(destination)
+                #if compiler(>=6.2)
                 Attachment.record(data as Data, named: "sample-\(index)-depth-lit.png")
+                #endif
             }
         }
     }
@@ -260,7 +264,9 @@ struct VolumetricLightTests {
             let destination = try #require(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
             CGImageDestinationAddImage(destination, lit, nil)
             CGImageDestinationFinalize(destination)
+            #if compiler(>=6.2)
             Attachment.record(data as Data, named: "sample-\(index)\(suffix)-lit.png")
+            #endif
         }
     }
 }

@@ -106,7 +106,7 @@ nonisolated enum RawImporter {
         var settings = RawDevelopSettings(temperature: filter.neutralTemperature, tint: filter.neutralTint)
         settings.noiseReduction = filter.isLuminanceNoiseReductionSupported ? filter.luminanceNoiseReductionAmount : 0
         settings.lensCorrection = filter.isLensCorrectionSupported && filter.isLensCorrectionEnabled
-        settings.highlightRecovery = filter.isHighlightRecoverySupported && filter.isHighlightRecoveryEnabled
+        settings.highlightRecovery = filter.supportsHighlightRecoveryAtRuntime && filter.isHighlightRecoveryEnabledAtRuntime
         settings.asShotTemperature = settings.temperature
         settings.asShotTint = settings.tint
         settings.asShotNoiseReduction = settings.noiseReduction
@@ -114,7 +114,7 @@ nonisolated enum RawImporter {
         settings.asShotHighlightRecovery = settings.highlightRecovery
         settings.supportsNoiseReduction = filter.isLuminanceNoiseReductionSupported
         settings.supportsLensCorrection = filter.isLensCorrectionSupported
-        settings.supportsHighlightRecovery = filter.isHighlightRecoverySupported
+        settings.supportsHighlightRecovery = filter.supportsHighlightRecoveryAtRuntime
         return settings
     }
 
@@ -142,7 +142,7 @@ nonisolated enum RawImporter {
         filter.boostAmount = settings.boost
         if settings.supportsNoiseReduction { filter.luminanceNoiseReductionAmount = settings.noiseReduction }
         if settings.supportsLensCorrection { filter.isLensCorrectionEnabled = settings.lensCorrection }
-        if settings.supportsHighlightRecovery { filter.isHighlightRecoveryEnabled = settings.highlightRecovery }
+        if settings.supportsHighlightRecovery { filter.setHighlightRecoveryEnabledAtRuntime(settings.highlightRecovery) }
         guard let output = filter.outputImage else { return nil }
         if sixteenBit {
             return context.createCGImage(output, from: output.extent.integral, format: .RGBA16,
@@ -178,5 +178,36 @@ nonisolated enum RawImporter {
               let width = props[kCGImagePropertyPixelWidth] as? Int,
               let height = props[kCGImagePropertyPixelHeight] as? Int else { return nil }
         return (width, height)
+    }
+}
+
+/// Highlight recovery arrived in CIRAWFilter with macOS 26, so a build against an older SDK has no member to call.
+/// Ask the filter itself instead: it answers on a system that has the property, and not on one that doesn't.
+private extension CIRAWFilter {
+    var supportsHighlightRecoveryAtRuntime: Bool {
+        #if compiler(>=6.2)
+        return isHighlightRecoverySupported
+        #else
+        guard responds(to: NSSelectorFromString("isHighlightRecoverySupported")) else { return false }
+        return (value(forKey: "highlightRecoverySupported") as? Bool) ?? false
+        #endif
+    }
+
+    var isHighlightRecoveryEnabledAtRuntime: Bool {
+        #if compiler(>=6.2)
+        return isHighlightRecoveryEnabled
+        #else
+        guard responds(to: NSSelectorFromString("isHighlightRecoveryEnabled")) else { return false }
+        return (value(forKey: "highlightRecoveryEnabled") as? Bool) ?? false
+        #endif
+    }
+
+    func setHighlightRecoveryEnabledAtRuntime(_ enabled: Bool) {
+        #if compiler(>=6.2)
+        isHighlightRecoveryEnabled = enabled
+        #else
+        guard responds(to: NSSelectorFromString("setHighlightRecoveryEnabled:")) else { return }
+        setValue(enabled, forKey: "highlightRecoveryEnabled")
+        #endif
     }
 }

@@ -4,6 +4,8 @@ import AppKit
 /// A single worker, superseded-request cancellation and a fixed pixel budget keep slider drags off the UI thread.
 @MainActor
 final class EffectsPreviewCache {
+    /// Every stored property starts empty, so a session can make one wherever it's created.
+    nonisolated init() {}
     nonisolated private final class Request: @unchecked Sendable {
         let id = UUID()
         let image: CGImage

@@ -151,7 +151,7 @@ struct LayersHeader: View {
                 get: { session.layerTypeFilter.isEmpty },
                 set: { on in if on { session.clearLayerTypeFilter() } }
             ))
-            .labelReservedIconWidth(16)
+            .reservedIconWidth(16)
             .accessibilityIdentifier("layerFilterAll")
             Divider()
             ForEach(LayerType.allCases.filter { $0 != .selected }, id: \.self) { typeToggle($0) }
@@ -166,7 +166,7 @@ struct LayersHeader: View {
             get: { session.layerTypeFilter.contains(kind) },
             set: { on in if on { session.layerTypeFilter.insert(kind) } else { session.layerTypeFilter.remove(kind) } }
         ))
-        .labelReservedIconWidth(16)
+        .reservedIconWidth(16)
         .accessibilityLabel(kind.filterLabel)
         .accessibilityIdentifier(kind.accessibilityID)
     }
@@ -246,5 +246,16 @@ private struct PlainSearchText: NSViewRepresentable {
             }
             return true
         }
+    }
+}
+
+private extension View {
+    /// A fixed width for a toggle's icon, as macOS 26 spaces them; older systems keep their own spacing.
+    @ViewBuilder func reservedIconWidth(_ width: CGFloat) -> some View {
+        #if compiler(>=6.2)
+        labelReservedIconWidth(width)
+        #else
+        self
+        #endif
     }
 }

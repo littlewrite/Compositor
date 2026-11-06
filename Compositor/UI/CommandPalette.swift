@@ -101,6 +101,7 @@ enum CommandPaletteSearch {
 /// The menu bar as palette entries: every item that does something, with its path ("Layer › Rename Layer…"), its
 /// key and whether it's enabled now. Read afresh each time the palette opens, so titles that change with state
 /// ("Undo Brush Stroke") are current.
+@MainActor
 enum CommandPaletteMenu {
     /// `skipping` holds titles left out: top-level menus (Window, Help) and single items (the palette's own).
     /// The app menu, the first in the bar, is always left out.
@@ -172,6 +173,7 @@ extension CommandPaletteEntry {
     /// The tools, run by choosing them. With no document open there is nothing to use them on, so they're disabled.
     /// Commands that live on buttons rather than in the menu bar, so the palette finds them too: adding a layer mask,
     /// as the Layers panel's mask button does (Option for the black one).
+    @MainActor
     static func layerCommands(for session: EditorSession) -> [CommandPaletteEntry] {
         let canAdd = session.canEditMask && session.activeLayer?.mask == nil
         let selected = session.selection != nil
@@ -188,8 +190,10 @@ extension CommandPaletteEntry {
     /// Every tool, and each of a tool's modes on its own, by the name someone would search for: Liquify is a mode of
     /// the Smear tool, Polygonal Lasso a mode of the Lasso, and neither is in a menu. The tool's key shows where a
     /// command's shortcut would.
+    @MainActor
     static func tools(for session: EditorSession) -> [CommandPaletteEntry] {
-        typealias Setup = (EditorSession) -> Void
+        typealias Setup = @MainActor (EditorSession) -> Void
+        let hasDocument = session.document != nil
         let tools: [(String, String, NavigationTool, Setup?)] = [
             ("Move / Transform", "V", .move, nil),
             ("Rectangular Marquee", "M", .marquee, { $0.marqueeKind = .rectangle }),
@@ -216,7 +220,7 @@ extension CommandPaletteEntry {
             ("Zoom", "Z", .zoom, nil),
         ]
         return tools.map { name, key, tool, setup in
-            CommandPaletteEntry(id: "Tool › \(name)", shortcut: key, isEnabled: session.document != nil,
+            CommandPaletteEntry(id: "Tool › \(name)", shortcut: key, isEnabled: hasDocument,
                                 perform: { [weak session] in
                                     guard let session else { return }
                                     session.selectTool(tool)

@@ -1,6 +1,9 @@
 import AppKit
+#if canImport(Sparkle)
 import Sparkle
+#endif
 
+@MainActor
 final class CompositorApplicationDelegate: NSObject, NSApplicationDelegate {
     let workspace = ProjectWorkspace()
     var session: EditorSession { workspace.current.session }
@@ -8,11 +11,12 @@ final class CompositorApplicationDelegate: NSObject, NSApplicationDelegate {
     var showEditor: (() -> Void)?
     /// Whether the app is hosting its tests: XCTest's configuration is in the environment from launch, and XCTest itself
     /// is loaded. The UI tests, which drive the app from outside, pass -SUEnableAutomaticChecks NO instead.
-    static var runsTests: Bool {
+    nonisolated static var runsTests: Bool {
         let environment = ProcessInfo.processInfo.environment
         return environment["XCTestConfigurationFilePath"] != nil || environment["XCTestBundlePath"] != nil
             || NSClassFromString("XCTestCase") != nil
     }
+    #if canImport(Sparkle)
     /// Checks the update feed and installs new versions (Sparkle), offering each one with what's new listed in it.
     /// Started only after launch: its first-run prompt, shown during launch, kept the editor window from ever opening.
     private let updateDriver = UpdateDriver()
@@ -22,6 +26,12 @@ final class CompositorApplicationDelegate: NSObject, NSApplicationDelegate {
         updateDriver.updater = updater
         return updater
     }()
+
+    /// The app's menu item; the local build without Sparkle has no updater to ask.
+    func checkForUpdates() {
+        updater.checkForUpdates()
+    }
+    #endif
 
     // Finder Open With and Dock drops, including files delivered during launch.
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -89,6 +99,7 @@ final class CompositorApplicationDelegate: NSObject, NSApplicationDelegate {
             guard let menu = note.object as? NSMenu, let index = note.userInfo?["NSMenuItemIndex"] as? Int else { return }
             MainActor.assumeIsolated { Self.removeIfSystemExtra(at: index, in: menu) }
         }
+        #if canImport(Sparkle)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             // Not while tests host the app: an update out since this build would come up as a modal alert and stop them.
             guard !Self.runsTests else { return }
@@ -98,6 +109,7 @@ final class CompositorApplicationDelegate: NSObject, NSApplicationDelegate {
             if UserDefaults.standard.string(forKey: "UpdateFeedURL") != nil { self?.updater.checkForUpdates() }
             #endif
         }
+        #endif
     }
 
     /// Black over everything but the window's inside in Canvas Only: the screen around it, its rounded corners and the

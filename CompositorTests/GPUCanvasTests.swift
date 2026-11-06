@@ -138,7 +138,9 @@ import Testing
         BrushRaster.draw(cpu.makeImage()!, in: CGRect(x: 0, y: 0, width: width, height: height), mask: false, context: pair)
         BrushRaster.draw(gpuImage, in: CGRect(x: width, y: 0, width: width, height: height), mask: false, context: pair)
         if let png = NSBitmapImageRep(cgImage: pair.makeImage()!).representation(using: .png, properties: [:]) {
+            #if compiler(>=6.2)
             Attachment.record(png, named: "\(name).png")
+            #endif
         }
         return Difference(mean: total / Double(width * height * 3), over: Double(over) / Double(width * height))
     }

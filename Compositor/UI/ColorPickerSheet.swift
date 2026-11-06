@@ -171,6 +171,7 @@ extension PaletteColor {
 /// One for the app, not one per view showing the palette: the tool rail can rebuild its palette (switching between one
 /// column and two), and a picker opened by the old one would then be left open with nothing to close it, its OK and
 /// Cancel doing nothing visible.
+@MainActor
 final class ColorPickerPanelController: NSObject {
     static let shared = ColorPickerPanelController()
 

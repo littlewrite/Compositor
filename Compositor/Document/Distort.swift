@@ -346,6 +346,7 @@ extension EditorSession {
     }
 
     /// Apply for a distortion: each distorted layer's pixels and mask are resampled into its shape, as one undo step.
+    @MainActor
     func commitDistort(_ edit: TransformEdit, corners shape: [CGPoint]) {
         distortPreviewCache = [:]
         defer { distortEffectsCache = [:] }

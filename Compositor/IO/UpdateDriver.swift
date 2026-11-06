@@ -1,3 +1,4 @@
+#if canImport(Sparkle)
 import AppKit
 import Sparkle
 
@@ -185,3 +186,4 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
         #endif
     }
 }
+#endif
