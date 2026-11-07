@@ -232,7 +232,7 @@ struct ExportAsSheet: View {
                 if format == .jpeg || format == .pdf || (format == .tiff && cmyk) || (format == .gif && !gifOptions.keepsTransparency) {
                     GridRow {
                         Text("Background")
-                        DialogColorSwatch(title: "Export Background", color: format == .gif ? gifMatte : matte, session: session)
+                        DialogColorSwatch(title: "Export Background".localized, color: format == .gif ? gifMatte : matte, session: session)
                             .help("Color that fills transparent areas")
                     }
                 }

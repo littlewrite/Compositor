@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#endif
+import Foundation
+import CoreGraphics
 import Testing
 @testable import Compositor
 

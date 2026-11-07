@@ -552,12 +552,9 @@ struct FilterSheet: View {
         return value
     }
 
-    static let cyanRedTrack = CameraRawSliderTrack.opposing(NSColor(srgbRed: 0.10, green: 0.72, blue: 0.80, alpha: 1),
-                                                            NSColor(srgbRed: 0.86, green: 0.18, blue: 0.20, alpha: 1))
-    static let magentaGreenTrack = CameraRawSliderTrack.opposing(NSColor(srgbRed: 0.80, green: 0.22, blue: 0.70, alpha: 1),
-                                                                 NSColor(srgbRed: 0.24, green: 0.70, blue: 0.30, alpha: 1))
-    static let yellowBlueTrack = CameraRawSliderTrack.opposing(NSColor(srgbRed: 0.95, green: 0.82, blue: 0.18, alpha: 1),
-                                                               NSColor(srgbRed: 0.22, green: 0.40, blue: 0.92, alpha: 1))
+    static let cyanRedTrack = CameraRawSliderTrack.cyanRed
+    static let magentaGreenTrack = CameraRawSliderTrack.magentaGreen
+    static let yellowBlueTrack = CameraRawSliderTrack.yellowBlue
 
     /// A slider plus an exact field. Logarithmic sliders give the small values used most most of the travel.
     /// A colored track draws the slider as Camera Raw's, where a double-click on the title or knob resets it.

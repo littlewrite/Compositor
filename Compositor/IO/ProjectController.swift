@@ -53,7 +53,7 @@ final class ProjectController {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do { try await ImageExporter.shared.exportPNG(snapshot, to: url) }
-        catch { await showError("Couldn’t export PNG", error: error) }
+        catch { await showError("Couldn’t export PNG".localized, error: error) }
     }
 
     /// The layer list's Export Layers as PNGs…: each selected layer on its own, trimmed to its pixels and named after it.
@@ -91,18 +91,20 @@ final class ProjectController {
             panel.canChooseFiles = false
             panel.canCreateDirectories = true
             panel.title = "Export \(layers.count) Layers as PNGs"
-            panel.message = "Choose a folder for the layers’ PNGs."
-            panel.prompt = "Export"
+            panel.message = "Choose a folder for the layers’ PNGs.".localized
+            panel.prompt = "Export".localized
             guard await run(panel), let url = panel.url else { return }
             urls = names.map { url.appendingPathComponent($0) }
             folder = url
             let existing = urls.filter { FileManager.default.fileExists(atPath: $0.path) }
             if !existing.isEmpty {
                 let alert = NSAlert()
-                alert.messageText = existing.count == 1 ? "“\(existing[0].lastPathComponent)” already exists. Replace it?"
-                    : "\(existing.count) of these files already exist in “\(url.lastPathComponent)”. Replace them?"
-                alert.addButton(withTitle: "Replace")
-                alert.addButton(withTitle: "Cancel")
+                alert.messageText = existing.count == 1
+                    ? String(format: "“%@” already exists. Replace it?".localized, existing[0].lastPathComponent)
+                    : String(format: "%@ of these files already exist in “%@”. Replace them?".localized,
+                             "\(existing.count)", url.lastPathComponent)
+                alert.addButton(withTitle: "Replace".localized)
+                alert.addButton(withTitle: "Cancel".localized)
                 guard await show(alert) == .alertFirstButtonReturn else { return }
             }
         }
@@ -116,12 +118,14 @@ final class ProjectController {
                 }
                 try await ImageExporter.shared.write(data, to: url)
             }
-        } catch { await showError("Couldn’t export layers", error: error); return }
+        } catch { await showError("Couldn’t export layers".localized, error: error); return }
         if !empty.isEmpty {
             let alert = NSAlert()
-            alert.messageText = empty.count == 1 ? "“\(empty[0])” has nothing to export" : "\(empty.count) layers have nothing to export"
-            alert.informativeText = "A layer with no visible pixels, such as an adjustment layer, isn’t saved as a PNG."
-            alert.addButton(withTitle: "OK")
+            alert.messageText = empty.count == 1
+                ? String(format: "“%@” has nothing to export".localized, empty[0])
+                : String(format: "%@ layers have nothing to export".localized, "\(empty.count)")
+            alert.informativeText = "A layer with no visible pixels, such as an adjustment layer, isn’t saved as a PNG.".localized
+            alert.addButton(withTitle: "OK".localized)
             _ = await show(alert)
         }
     }
@@ -173,7 +177,7 @@ final class ProjectController {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             try await ImageExporter.shared.write(chosen.data, to: url)
-        } catch { await showError("Couldn’t export", error: error) }
+        } catch { await showError("Couldn’t export".localized, error: error) }
     }
 
     /// The format Export As last used, offered first next time.
@@ -212,7 +216,7 @@ final class ProjectController {
         do {
             let resized = try await CanvasResizer.shared.resize(snapshot, to: options)
             session.applyDocumentSize(resized, actionName: "Canvas Size", keepingZoom: true)
-        } catch { await showError("Couldn’t change canvas size", error: error) }
+        } catch { await showError("Couldn’t change canvas size".localized, error: error) }
     }
 
     func imageSize() async {
@@ -234,7 +238,7 @@ final class ProjectController {
         do {
             let resized = try await ImageResizer.shared.resize(snapshot, to: options)
             session.applyImageSize(resized)
-        } catch { await showError("Couldn’t resize the image", error: error) }
+        } catch { await showError("Couldn’t resize the image".localized, error: error) }
     }
 
     func trim() async {
@@ -258,7 +262,7 @@ final class ProjectController {
                 return
             }
             session.applyDocumentSize(resized, actionName: "Trim")
-        } catch { await showError("Couldn’t trim image", error: error) }
+        } catch { await showError("Couldn’t trim image".localized, error: error) }
     }
 
     /// View > Grid Settings…: changes only how the grid is drawn and snapped to, so nothing is saved or undone. The
@@ -336,7 +340,7 @@ final class ProjectController {
                 watchProject(at: destination)
                 return true
             } catch {
-                await showError("Couldn’t save the project", error: error)
+                await showError("Couldn’t save the project".localized, error: error)
                 return false
             }
         }
@@ -390,7 +394,7 @@ final class ProjectController {
             watchProject(at: source)
             return true
         } catch {
-            await showError("Couldn’t open the project", error: error)
+            await showError("Couldn’t open the project".localized, error: error)
             return false
         }
     }
@@ -428,11 +432,12 @@ final class ProjectController {
         await finishWriting()
         guard session.isModified, session.document != nil else { return true }
         let alert = NSAlert()
-        alert.messageText = "Save changes to \(session.projectURL?.lastPathComponent ?? "Untitled")?"
-        alert.informativeText = "Your changes will be lost if you don’t save them."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Don’t Save")
+        alert.messageText = String(format: "Save changes to %@?".localized,
+                                   session.projectURL?.lastPathComponent ?? "Untitled".localized)
+        alert.informativeText = "Your changes will be lost if you don’t save them.".localized
+        alert.addButton(withTitle: "Save".localized)
+        alert.addButton(withTitle: "Cancel".localized)
+        alert.addButton(withTitle: "Don’t Save".localized)
         let response = await show(alert)
         if response == .alertFirstButtonReturn { return await saveCurrent() }
         return response == .alertThirdButtonReturn
@@ -443,7 +448,7 @@ final class ProjectController {
         alert.alertStyle = .warning
         alert.messageText = title
         alert.informativeText = error.localizedDescription
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "OK".localized)
         _ = await show(alert)
     }
 
@@ -498,20 +503,3 @@ final class ProjectController {
     }
 }
 
-/// What File › Export As… writes.
-enum ExportFormat: String, CaseIterable {
-    // In the order Export As lists them: GIF after PDF, as fewer need it.
-    case png = "PNG", jpeg = "JPEG", tiff = "TIFF", pdf = "PDF", gif = "GIF", exr = "EXR"
-    /// Layers packed into a PNG's red, green, blue and alpha, for game textures (see `ChannelPack`).
-    case channelPack = "Channel Pack"
-    var type: UTType {
-        switch self {
-        case .png, .channelPack: .png
-        case .jpeg: .jpeg
-        case .gif: .gif
-        case .tiff: .tiff
-        case .pdf: .pdf
-        case .exr: .openEXR
-        }
-    }
-}

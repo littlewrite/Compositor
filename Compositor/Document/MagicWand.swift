@@ -1,8 +1,9 @@
-import AppKit
+import CoreGraphics
+import Foundation
 
 nonisolated enum WandSampleSize: Int, CaseIterable, Sendable {
     case point, threeByThree, fiveByFive
-    var title: String { ["Point Sample", "3 by 3 Average", "5 by 5 Average"][rawValue] }
+    var title: String { ["Point Sample", "3 by 3 Average", "5 by 5 Average"][rawValue].localized }
     /// Pixels either side of the click that are averaged into the color to match.
     var radius: Int { rawValue }
 }

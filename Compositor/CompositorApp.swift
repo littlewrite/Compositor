@@ -7,7 +7,7 @@ struct CompositorApp: App {
     @AppStorage("navigator.visible") private var showsNavigator = false
     private var session: EditorSession { applicationDelegate.session }
     private func filterMenuItem(_ kind: FilterKind) -> some View {
-        Button("\(kind.rawValue)…") { session.beginFilter(kind) }
+        Button(kind.displayName + "…") { session.beginFilter(kind) }
             .disabled(!(kind == .vignette ? session.canVignette : session.canAdjustColors) || session.hueSaturation != nil)
     }
     var body: some Scene {
@@ -44,12 +44,12 @@ struct CompositorApp: App {
                             .configuredKeyboardShortcut("z", modifiers: [.command, .shift])
                     } else {
                         // A Save or Open panel's name field undoes its own typing (see `isEditingText`).
-                        Button(session.history.canUndo ? "Undo \(session.history.undoName)" : "Undo") {
+                        Button(session.history.canUndo ? String(format: "Undo %@".localized, session.history.undoName.localized) : "Undo".localized) {
                             if NSApp.keyWindow is NSSavePanel { NSApp.sendAction(NSSelectorFromString("undo:"), to: nil, from: nil) }
                             else { session.undo() }
                         }
                             .configuredKeyboardShortcut("z").disabled(!session.canUndo)
-                        Button(session.history.canRedo ? "Redo \(session.history.redoName)" : "Redo") {
+                        Button(session.history.canRedo ? String(format: "Redo %@".localized, session.history.redoName.localized) : "Redo".localized) {
                             if NSApp.keyWindow is NSSavePanel { NSApp.sendAction(NSSelectorFromString("redo:"), to: nil, from: nil) }
                             else { session.redo() }
                         }
@@ -321,10 +321,10 @@ struct CompositorApp: App {
                     Button("Hue/Saturation…") { session.beginHueSaturation() }
                         .configuredKeyboardShortcut("u").disabled(!session.canAdjustColors)
                     ForEach([FilterKind.blackWhite, .colorBalance, .exposure, .gradientMap, .grain], id: \.self) { kind in
-                        Button("\(kind.rawValue)…") { session.beginFilter(kind) }
+                        Button(kind.displayName + "…") { session.beginFilter(kind) }
                             .disabled(!session.canAdjustColors || session.hueSaturation != nil)
                     }
-                    Button(session.isMaskSelected ? "Invert Mask" : "Invert") { Task { await session.invertPixels() } }
+                    Button(session.isMaskSelected ? "Invert Mask".localized : "Invert".localized) { Task { await session.invertPixels() } }
                         .configuredKeyboardShortcut("i")
                         .disabled(!session.canInvert)
                     Divider()
@@ -349,7 +349,7 @@ struct CompositorApp: App {
                     }
                 }
                 CommandMenu("Filter") {
-                    Button(session.lastFilter.map { "Last Filter: " + $0.rawValue } ?? "Last Filter") {
+                    Button(session.lastFilter.map { String(format: "Last Filter: %@".localized, $0.displayName) } ?? "Last Filter".localized) {
                         Task { await session.repeatLastFilter() }
                     }
                         // ⌃⌘F, as in Photoshop; ⌘F is the command palette.
@@ -366,20 +366,20 @@ struct CompositorApp: App {
                     Menu("New Adjustment Layer") {
                         // The Image menu's adjustments, then the Filter menu's filters.
                         ForEach(AdjustmentKind.imageAdjustments, id: \.self) { kind in
-                            Button(kind.rawValue + (kind.isEditable ? "…" : "")) { session.addAdjustment(kind) }
+                            Button(kind.displayName + (kind.isEditable ? "…" : "")) { session.addAdjustment(kind) }
                         }
                         Divider()
                         ForEach(AdjustmentKind.filters, id: \.self) { kind in
-                            Button(kind.rawValue + "…") { session.addAdjustment(kind) }
+                            Button(kind.displayName + "…") { session.addAdjustment(kind) }
                         }
                     }.disabled(!session.canEditLayers || session.document == nil)
                     Button("Edit Adjustment…") {
                         session.adjustmentEditingID = session.activeLayerID
                     }.disabled(!session.canEditLayers || session.activeLayer?.adjustment == nil)
                     Divider()
-                    Button(session.canTransformSelection ? "Transform Selection" : "Transform Layer") { session.transformCommand() }
+                    Button(session.canTransformSelection ? "Transform Selection".localized : "Transform Layer".localized) { session.transformCommand() }
                         .configuredKeyboardShortcut("t").disabled(!session.canTransform && !session.canTransformSelection)
-                    Button(session.selection == nil ? "Duplicate Layer" : "Layer via Copy") { session.layerViaCopy() }
+                    Button(session.selection == nil ? "Duplicate Layer".localized : "Layer via Copy".localized) { session.layerViaCopy() }
                         .configuredKeyboardShortcut("j").disabled(!session.canCopyPixels && !(session.selection == nil && session.canEditLayers && session.activeLayer != nil))
                     Divider()
                     Button(session.selectedClippingTitle) { session.toggleSelectedClipping() }
@@ -422,19 +422,21 @@ struct CompositorApp: App {
                             .disabled(!session.canTransform)
                         Menu("Align") {
                             ForEach(LayerAlignment.allCases, id: \.self) { alignment in
-                                Button(alignment.rawValue) { session.alignLayers(alignment) }
+                                Button(alignment.rawValue.localized) { session.alignLayers(alignment) }
                             }
                         }
                             .disabled(!session.canAlignLayers)
                         Menu("Distribute") {
                             ForEach(LayerDistribution.allCases, id: \.self) { distribution in
-                                Button(distribution.rawValue) { session.distributeLayers(distribution) }
+                                Button(distribution.rawValue.localized) { session.distributeLayers(distribution) }
                             }
                         }
                             .disabled(!session.canDistributeLayers)
                     }
                     Divider()
-                    Button(session.selectedEffect != nil ? "Delete " + session.selectedEffect!.kind.rawValue : session.isMaskSelected && session.activeLayer.flatMap({ session.selectedMask(for: $0) }) != nil ? "Delete Layer Mask" : session.selectedLayerIDs.count > 1 ? "Delete Layers" : "Delete Layer") {
+                    Button(session.selectedEffect.map { String(format: "Delete %@".localized, $0.kind.displayName) }
+                        ?? (session.isMaskSelected && session.activeLayer.flatMap({ session.selectedMask(for: $0) }) != nil ? "Delete Layer Mask".localized
+                            : session.selectedLayerIDs.count > 1 ? "Delete Layers".localized : "Delete Layer".localized)) {
                         session.deleteLayerOrMask()
                     }
                         .disabled(!session.canEditLayers || session.activeLayer == nil)
@@ -446,7 +448,7 @@ struct CompositorApp: App {
     private func loadCMYKProfile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "icc") ?? .data, UTType(filenameExtension: "icm") ?? .data]
-        panel.message = "Choose a CMYK ICC profile, such as the one your printer gave you"
+        panel.message = "Choose a CMYK ICC profile, such as the one your printer gave you".localized
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { session.proofProfile = try CMYK.load(url) }
         catch { session.importError = error.localizedDescription }

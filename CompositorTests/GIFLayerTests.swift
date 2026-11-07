@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#endif
+import Foundation
+import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 import Testing

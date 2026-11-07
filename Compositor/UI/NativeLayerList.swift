@@ -126,13 +126,13 @@ struct NativeLayerList: NSViewRepresentable {
             let menu = NSMenu()
 
             // 1. Duplicate Layer
-            let duplicateItem = NSMenuItem(title: "Duplicate Layer", action: #selector(duplicateLayerAction), keyEquivalent: "")
+            let duplicateItem = NSMenuItem(title: "Duplicate Layer".localized, action: #selector(duplicateLayerAction), keyEquivalent: "")
             duplicateItem.target = self
             duplicateItem.isEnabled = validateMenuItem(duplicateItem)
             menu.addItem(duplicateItem)
 
             // 2. Rename…
-            let renameItem = NSMenuItem(title: "Rename…", action: #selector(renameLayerAction), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: "Rename…".localized, action: #selector(renameLayerAction), keyEquivalent: "")
             renameItem.target = self
             renameItem.isEnabled = validateMenuItem(renameItem)
             menu.addItem(renameItem)
@@ -160,21 +160,21 @@ struct NativeLayerList: NSViewRepresentable {
             menu.addItem(clippingItem)
 
             // 5. Group Selected Layers
-            let groupItem = NSMenuItem(title: "Group Selected Layers", action: #selector(groupSelectedLayersAction), keyEquivalent: "")
+            let groupItem = NSMenuItem(title: "Group Selected Layers".localized, action: #selector(groupSelectedLayersAction), keyEquivalent: "")
             groupItem.target = self
             groupItem.isEnabled = validateMenuItem(groupItem)
             menu.addItem(groupItem)
 
             // A folder right-clicked can be ungrouped: its layers stay where they are, and the folder goes.
             if rows[row].isGroup {
-                let ungroupItem = NSMenuItem(title: "Ungroup Layers", action: #selector(ungroupLayersAction), keyEquivalent: "")
+                let ungroupItem = NSMenuItem(title: "Ungroup Layers".localized, action: #selector(ungroupLayersAction), keyEquivalent: "")
                 ungroupItem.target = self
                 ungroupItem.isEnabled = validateMenuItem(ungroupItem)
                 menu.addItem(ungroupItem)
             }
 
             // 6. Move Out of Folder
-            let moveOutItem = NSMenuItem(title: "Move Out of Folder", action: #selector(moveOutOfFolderAction), keyEquivalent: "")
+            let moveOutItem = NSMenuItem(title: "Move Out of Folder".localized, action: #selector(moveOutOfFolderAction), keyEquivalent: "")
             moveOutItem.target = self
             moveOutItem.isEnabled = validateMenuItem(moveOutItem)
             menu.addItem(moveOutItem)
@@ -189,13 +189,13 @@ struct NativeLayerList: NSViewRepresentable {
             // layer can go to 16 bits as well as to 8). Shown, greyed, for layers neither applies to.
             let sixteen = session.canConvertToSixteenBit, eight = session.canConvertToEightBit
             if sixteen || !eight {
-                let sixteenItem = NSMenuItem(title: "Convert to 16-Bit", action: #selector(convertToSixteenBitAction), keyEquivalent: "")
+                let sixteenItem = NSMenuItem(title: "Convert to 16-Bit".localized, action: #selector(convertToSixteenBitAction), keyEquivalent: "")
                 sixteenItem.target = self
                 sixteenItem.isEnabled = validateMenuItem(sixteenItem)
                 menu.addItem(sixteenItem)
             }
             if eight {
-                let eightItem = NSMenuItem(title: "Convert to 8-Bit", action: #selector(convertToEightBitAction), keyEquivalent: "")
+                let eightItem = NSMenuItem(title: "Convert to 8-Bit".localized, action: #selector(convertToEightBitAction), keyEquivalent: "")
                 eightItem.target = self
                 eightItem.isEnabled = validateMenuItem(eightItem)
                 menu.addItem(eightItem)
@@ -204,13 +204,13 @@ struct NativeLayerList: NSViewRepresentable {
             menu.addItem(NSMenuItem.separator())
 
             // 8. Add Mask >
-            let addMaskItem = NSMenuItem(title: "Add Mask", action: nil, keyEquivalent: "")
+            let addMaskItem = NSMenuItem(title: "Add Mask".localized, action: nil, keyEquivalent: "")
             let addMaskSubmenu = NSMenu(title: "Add Mask")
-            let revealAllItem = NSMenuItem(title: "Reveal All (White)", action: #selector(addWhiteMaskAction), keyEquivalent: "")
+            let revealAllItem = NSMenuItem(title: "Reveal All (White)".localized, action: #selector(addWhiteMaskAction), keyEquivalent: "")
             revealAllItem.target = self
             revealAllItem.isEnabled = validateMenuItem(revealAllItem)
             addMaskSubmenu.addItem(revealAllItem)
-            let hideAllItem = NSMenuItem(title: "Hide All (Black)", action: #selector(addBlackMaskAction), keyEquivalent: "")
+            let hideAllItem = NSMenuItem(title: "Hide All (Black)".localized, action: #selector(addBlackMaskAction), keyEquivalent: "")
             hideAllItem.target = self
             hideAllItem.isEnabled = validateMenuItem(hideAllItem)
             addMaskSubmenu.addItem(hideAllItem)
@@ -226,7 +226,7 @@ struct NativeLayerList: NSViewRepresentable {
             menu.addItem(toggleMaskItem)
 
             // 10. Delete Mask
-            let deleteMaskItem = NSMenuItem(title: "Delete Mask", action: #selector(deleteMaskAction), keyEquivalent: "")
+            let deleteMaskItem = NSMenuItem(title: "Delete Mask".localized, action: #selector(deleteMaskAction), keyEquivalent: "")
             deleteMaskItem.target = self
             deleteMaskItem.isEnabled = validateMenuItem(deleteMaskItem)
             menu.addItem(deleteMaskItem)
@@ -1497,25 +1497,4 @@ private struct ThumbnailKey: Equatable {
     let transform: LayerTransform
     let canvas: CGSize
     var editableText = false
-}
-
-extension ImageLayer {
-    /// The layer's size on the canvas and, once it's scaled, by how much, for its row. A photo shrunk to 5% keeps
-    /// every one of its pixels; the percentage says so, where the size alone reads as if it had been resampled small.
-    var sizeLabel: String {
-        let text = "\(Int(size.width.rounded())) × \(Int(size.height.rounded())) px"
-        guard let pixels = asset?.image.width, pixels > 0 else { return text }
-        // Measured across the width, as the Transform bar's Scale field is.
-        let percent = Double(size.width) / Double(pixels) * 100
-        guard abs(percent - 100) >= 0.05 else { return text }
-        return text + " · " + percent.formatted(.number.precision(.fractionLength(0...1))) + "%"
-    }
-
-    /// The tag after the size of an animated GIF layer, or of a layer keeping 16 bits a channel or light brighter than
-    /// white (`DeepLayer`), which goes once it's rasterized to 8.
-    var depthLabel: String? {
-        if gifAnimation != nil { return "GIF" }
-        guard let asset, asset.deep != nil, liveText == nil, adjustment == nil, !isGroup else { return nil }
-        return asset.isHDR ? "HDR" : "16-Bit"
-    }
 }

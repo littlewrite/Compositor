@@ -206,12 +206,12 @@ struct DialogColorSwatch: View {
     let session: EditorSession
     var body: some View {
         Button {
-            session.openDialogColorPicker(title: title, color: color) { color = $0 }
+            session.openDialogColorPicker(title: title.localized, color: color) { color = $0 }
         } label: {
             ColorSwatch(color: color.swiftUI)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(title)
+        .accessibilityLabel(title.localized)
         .onChange(of: session.colorPicker?.color) { _, _ in session.previewDialogColor() }
         .onDisappear { Self.closePicker(session) }
     }

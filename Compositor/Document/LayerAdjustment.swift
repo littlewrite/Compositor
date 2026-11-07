@@ -1,4 +1,5 @@
-import AppKit
+import CoreGraphics
+import Foundation
 import CoreImage
 
 nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
@@ -10,6 +11,8 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
     case progressiveBlur = "Progressive Blur", bloomGlow = "Bloom / Glow", rgbSplit = "RGB Split"
     case vignette = "Vignette", lensEffects = "Lens Effects", tonalContrast = "Tonal Contrast"
     case sharpen = "Sharpen", reduceNoise = "Reduce Noise"
+    /// The adjustment's name as menus and editors show it, in the app's language; `rawValue` stays the project's.
+    var displayName: String { rawValue.localized }
     /// The menus' two groups, each in the order of the menu it comes from: the Image menu's color adjustments, then
     /// the Filter menu's filters.
     static let imageAdjustments: [Self] = [.curves, .levels, .hsv, .blackWhite, .colorBalance, .exposure, .gradientMap, .grain, .invert]
@@ -206,6 +209,12 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
     /// which Lens Effects measures itself by when `image` is only part of it.
     func apply(_ image: CGImage, region: CGRect? = nil, scale: CGFloat = 1, sixteenBit: Bool = false,
                document: CGSize? = nil) throws -> CGImage {
+        // The filters' deepest paths overflow a concurrency thread's small stack; the pixel worker has room.
+        try BigStack.run { try applyBody(image, region: region, scale: scale, sixteenBit: sixteenBit, document: document) }
+    }
+
+    private func applyBody(_ image: CGImage, region: CGRect? = nil, scale: CGFloat = 1, sixteenBit: Bool = false,
+                           document: CGSize? = nil) throws -> CGImage {
         switch kind {
         case .hsv:
             return try HueSaturationFilter.run(HueSaturationJob(image: image,
@@ -284,7 +293,7 @@ extension EditorSession {
         layer.adjustment = adjustment
         layer.parentID = activeLayer?.isGroup == true ? activeLayerID : activeLayer?.parentID
         let index = document.layers.firstIndex { $0.id == activeLayerID }.map { $0 + 1 } ?? document.layers.count
-        beginEdit("New \(kind.rawValue) Adjustment")
+        beginEdit(String(format: "New %@ Adjustment".localized, kind.displayName))
         self.document?.layers.insert(layer, at: index)
         if let parent = layer.parentID { collapsedGroupIDs.remove(parent) }
         activeLayerID = layer.id

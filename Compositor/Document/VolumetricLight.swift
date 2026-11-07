@@ -1,4 +1,9 @@
+#if canImport(AppKit)
 import AppKit
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
 import CoreGraphics
 import Foundation
 import CoreImage
@@ -601,7 +606,14 @@ extension EditorSession {
         preparingDepth = false
         let map = ready ? await Task.detached(priority: .userInitiated) { VolumetricLighting.depthMap(for: image, settings: settings) }.value : nil
         guard let map, let thumbnail = try? PixelAdjust.thumbnail(of: map), canEditLayers,
-              let index = document?.layers.firstIndex(where: { $0.id == source.id }) else { NSSound.beep(); return }
+              let index = document?.layers.firstIndex(where: { $0.id == source.id }) else {
+            #if canImport(AppKit)
+            NSSound.beep()
+            #else
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            #endif
+            return
+        }
         var layer = ImageLayer(asset: ImportedImage(image: map, thumbnail: thumbnail, name: "Depth"), origin: source.origin)
         layer.transform = source.transform
         layer.name = "Depth"

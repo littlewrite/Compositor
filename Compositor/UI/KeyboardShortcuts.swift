@@ -80,6 +80,23 @@ struct ShortcutDefinition: Identifiable {
     var id: String { "\(group):\(title)" }
     var isMenu: Bool { group == "Menus" }
 
+    /// The name the sheet shows, in the app's language. `title` stays as it was made, since saved shortcuts are keyed
+    /// by it.
+    var localizedTitle: String {
+        if title.hasPrefix("Opacity digit "), let digit = title.dropFirst(14).first {
+            return String(format: "Opacity digit %@ (type two for exact %%)".localized, String(digit))
+        }
+        for (prefix, direction) in [("Nudge Left ", "Left"), ("Nudge Right ", "Right"), ("Nudge Up ", "Up"),
+                                    ("Nudge Down ", "Down"), ("Move selected pixels Left ", "Left"),
+                                    ("Move selected pixels Right ", "Right"), ("Move selected pixels Up ", "Up"),
+                                    ("Move selected pixels Down ", "Down")] where title.hasPrefix(prefix) {
+            let distance = title.dropFirst(prefix.count)
+            let format = prefix.hasPrefix("Move") ? "Move selected pixels %@ %@ px" : "Nudge %@ %@ px"
+            return String(format: format.localized, direction.localized, String(distance))
+        }
+        return title.localized
+    }
+
     static let all: [ShortcutDefinition] = {
         func entry(_ title: String, _ key: String, _ modifiers: Int = 0, menu: Bool = false) -> ShortcutDefinition {
             .init(title: title, group: menu ? "Menus" : "Canvas & Layers", original: ShortcutChord(key, modifiers))
@@ -186,7 +203,7 @@ final class ShortcutSettings {
         return chord(definition)
     }
     func show() {
-        panel.show(title: "Keyboard Shortcuts", content: KeyboardShortcutsSheet(settings: self))
+        panel.show(title: "Keyboard Shortcuts".localized, content: KeyboardShortcutsSheet(settings: self))
     }
     func close() { panel.close() }
     func save(_ values: [String: ShortcutChord]) {
@@ -200,14 +217,14 @@ final class ShortcutSettings {
         for definition in ShortcutDefinition.all {
             let chord = values[definition.id] ?? definition.original
             if chord.isNone { continue }
-            guard chord.key.count == 1, (0...15).contains(chord.modifiers) else { return "Choose a single key with optional modifiers." }
+            guard chord.key.count == 1, (0...15).contains(chord.modifiers) else { return "Choose a single key with optional modifiers.".localized }
             if definition.group == "Text Editing", chord.modifiers & 7 == 0 {
-                return "Text-editing shortcuts need Command, Option, or Control so they do not replace normal typing."
+                return "Text-editing shortcuts need Command, Option, or Control so they do not replace normal typing.".localized
             }
             if [ShortcutChord("q", 1), ShortcutChord(",", 1), ShortcutChord("m", 3)].contains(chord) {
-                return "\(chord.label) is reserved by macOS."
+                return String(format: "%@ is reserved by macOS.".localized, chord.label)
             }
-            if let other = assigned[chord] { return "\(chord.label) is assigned to both \(other) and \(definition.title)." }
+            if let other = assigned[chord] { return String(format: "%@ is assigned to both %@ and %@.".localized, chord.label, other, definition.localizedTitle) }
             assigned[chord] = definition.title
         }
         return nil
@@ -279,7 +296,7 @@ private struct KeyboardShortcutsSheet: View {
                         Text(group).font(.headline).padding(.top, 8)
                         ForEach(ShortcutDefinition.all.filter { $0.group == group && (search.isEmpty || $0.title.localizedCaseInsensitiveContains(search)) }) { definition in
                             HStack {
-                                Text(definition.title)
+                                Text(definition.localizedTitle)
                                 Spacer()
                                 ShortcutRecorder(chord: draft[definition.id] ?? definition.original,
                                     recording: recording == definition.id,

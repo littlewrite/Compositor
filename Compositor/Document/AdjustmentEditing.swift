@@ -1,4 +1,5 @@
-import AppKit
+import CoreGraphics
+import Foundation
 
 extension EditorSession {
     /// Uses the ordinary color editors, but sends their changes to layer metadata.
@@ -58,7 +59,7 @@ extension EditorSession {
                 filterEdit = try FilterEdit(kind: original.kind.filterKind ?? .curves, layer: layer, selection: nil, settings: settings)
             }
             adjustmentOriginal = original
-            beginEdit("Edit \(original.kind.rawValue) Adjustment")
+            beginEdit(String(format: "Edit %@ Adjustment".localized, original.kind.displayName))
         } catch {
             guard adjustmentEditingID == id else { return }
             adjustmentEditingID = nil

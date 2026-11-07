@@ -1,3 +1,4 @@
+import Foundation
 import CoreImage
 import Testing
 @testable import Compositor

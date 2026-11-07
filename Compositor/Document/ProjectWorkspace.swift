@@ -30,7 +30,7 @@ final class ProjectWorkspace {
             && s.gradientEdit == nil && s.pixelMove == nil && s.colorPicker == nil
     }
     init() {
-        let first = ProjectTab(name: "Untitled")
+        let first = ProjectTab(name: "Untitled".localized)
         defer { attach(first) }
         first.session.skipsInitialClipboardCanvasSize = true
         tabs = [first]; selectedID = first.id
@@ -224,7 +224,7 @@ final class ProjectWorkspace {
     /// Cmd-V with a whole layer copied: pastes it complete — a copy above it in its own project, or brought over as
     /// dragging it onto this tab does. False when there is none, and Paste goes on with pixels.
     func pasteCopiedLayer() -> Bool {
-        let count = EditorSession.pasteboard.changeCount
+        let count = SystemPasteboard.changeCount
         guard let source = tabs.first(where: { $0.session.copiedLayer?.changeCount == count }),
               let copied = source.session.copiedLayer?.ids, let layers = source.session.document?.layers else { return false }
         let ids = copied.filter { id in layers.contains { $0.id == id } }
