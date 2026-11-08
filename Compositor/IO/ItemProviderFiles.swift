@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// The files that dropped or picked items stand for, in the order given: the file itself for an item on disk, or else
 /// a copy of the image it holds, made where the importer can read it. The importer then checks contents rather than
-/// trusting a name. The Mac's drops come through here, and so do the iPad's drops and picks from Photos.
+/// trusting a name. The Mac's drops come through here, and so do the iOS app's drops and picks from Photos.
 @MainActor
 enum ItemProviderFiles {
     /// The files for `providers`, and whether any of them held nothing readable. With `suggestedNames`, a copy is named

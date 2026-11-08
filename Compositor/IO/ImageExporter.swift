@@ -55,6 +55,18 @@ actor ImageExporter {
     /// `progress` is told how far it has come as it goes.
     func render(_ snapshot: ProjectSnapshot, scale: CGFloat = 1, sixteenBit: Bool = false, hdr: Bool = false,
                 progress: (@Sendable (Progress) -> Void)? = nil) throws -> ExportRaster {
+        // Flattening draws deep into Core Graphics and the adjustment layers' filters, which a concurrency thread's
+        // stack is too small for; the pixel worker's is not.
+        try Self.renderOnWorker(snapshot, scale: scale, sixteenBit: sixteenBit, hdr: hdr, progress: progress)
+    }
+
+    private nonisolated static func renderOnWorker(_ snapshot: ProjectSnapshot, scale: CGFloat, sixteenBit: Bool, hdr: Bool,
+                                                   progress: (@Sendable (Progress) -> Void)?) throws -> ExportRaster {
+        try BigStack.run { try renderBody(snapshot, scale: scale, sixteenBit: sixteenBit, hdr: hdr, progress: progress) }
+    }
+
+    private nonisolated static func renderBody(_ snapshot: ProjectSnapshot, scale: CGFloat, sixteenBit: Bool, hdr: Bool,
+                                               progress: (@Sendable (Progress) -> Void)?) throws -> ExportRaster {
         let width = snapshot.manifest.width, height = snapshot.manifest.height
         guard (1...DocumentLimits.maxSide).contains(width), (1...DocumentLimits.maxSide).contains(height),
               width * height <= DocumentLimits.maxSurfacePixels else { throw ExportError.tooLarge }

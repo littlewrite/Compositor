@@ -118,7 +118,7 @@ struct LevelsSheet: View {
     }
     private func handles(output: Bool) -> some View {
         GeometryReader { geometry in
-            let gammaPosition = current.black + (current.white - current.black) * pow(0.5, current.gamma)
+            let gammaPosition = current.gammaPosition
             let positions = output ? [current.outputBlack, current.outputWhite] : [current.black, gammaPosition, current.white]
             ForEach(positions.indices, id: \.self) { index in
                 let names = output ? ["Output black", "Output white"] : ["Input black", "Gamma", "Input white"]
@@ -131,16 +131,8 @@ struct LevelsSheet: View {
                         .onChanged { drag in
                             let x = min(255, max(0, drag.location.x / geometry.size.width * 255))
                             update {
-                                var range = $0.current
-                                if output {
-                                    if index == 0 { range.outputBlack = x.rounded() } else { range.outputWhite = x.rounded() }
-                                } else if index == 0 { range.black = min(range.white - 1, x.rounded()) }
-                                else if index == 2 { range.white = max(range.black + 1, x.rounded()) }
-                                else {
-                                    let fraction = min(0.999, max(0.001, (x - range.black) / (range.white - range.black)))
-                                    range.gamma = log(fraction) / log(0.5)
-                                }
-                                $0.current = range
+                                $0.current = output ? $0.current.movingOutput(index, to: x)
+                                                    : $0.current.movingInput(index, to: x)
                             }
                         })
                     .accessibilityLabel(names[index])

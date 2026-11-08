@@ -141,7 +141,7 @@ extension ProjectSnapshot {
 
 extension CanvasDocument {
     /// The document a project's snapshot describes: its size, resolution and guides, with the layers
-    /// `ProjectSnapshot.documentLayers` builds. The iPad makes a project's document here as the project opens.
+    /// `ProjectSnapshot.documentLayers` builds. The iOS app makes a project's document here as the project opens.
     init(project snapshot: ProjectSnapshot) {
         let manifest = snapshot.manifest
         self.init(id: manifest.documentID, width: manifest.width, height: manifest.height,

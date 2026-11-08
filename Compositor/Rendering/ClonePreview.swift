@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// What Clone Stamp would stamp, for the brush cursor to preview inside its circle between strokes, on the Mac and
-/// iPad alike: the source around the brush, and one click's coverage to shape it. Each is kept until what it shows
+/// the iOS canvas alike: the source around the brush, and one click's coverage to shape it. Each is kept until what it shows
 /// changes.
 @MainActor
 final class ClonePreview {

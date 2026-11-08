@@ -101,28 +101,32 @@ struct ShortcutDefinition: Identifiable {
         func entry(_ title: String, _ key: String, _ modifiers: Int = 0, menu: Bool = false) -> ShortcutDefinition {
             .init(title: title, group: menu ? "Menus" : "Canvas & Layers", original: ShortcutChord(key, modifiers))
         }
+        func entry(_ command: Command, _ title: String) -> ShortcutDefinition {
+            .init(title: title, group: "Menus",
+                  original: command.shortcut.map { ShortcutChord($0.key, $0.modifiers) } ?? .unassigned)
+        }
         var result: [ShortcutDefinition] = [
             entry("Undo", "z", 1, menu: true), entry("Redo", "z", 9, menu: true),
-            entry("New Canvas", "n", 1, menu: true), entry("Open Project", "o", 1, menu: true),
-            entry("Save", "s", 1, menu: true), entry("Save As", "s", 9, menu: true),
-            entry("Export JPEG", "s", 11, menu: true), entry("Export PNG", "e", 9, menu: true), entry("Export As", "w", 11, menu: true),
-            entry("Close Project", "w", 1, menu: true), entry("Fit Canvas", "0", 1, menu: true), entry("Search Commands", "f", 1, menu: true),
-            entry("Actual Pixels", "1", 1, menu: true), entry("Zoom In", "=", 1, menu: true),
-            entry("Zoom Out", "-", 1, menu: true), entry("Show Transform Controls", "h", 1, menu: true),
-            entry("Hide Compositor", "h", 3, menu: true), entry("Cut", "x", 1, menu: true),
-            entry("Copy", "c", 1, menu: true), entry("Copy Merged", "c", 9, menu: true),
-            entry("Paste", "v", 1, menu: true), entry("Fill with Foreground", "\u{7f}", 2, menu: true),
-            entry("Fill with Background", "\u{7f}", 1, menu: true), entry("Content-Aware Fill", "\u{7f}", 8, menu: true),
-            entry("Select All", "a", 1, menu: true), entry("Deselect", "d", 1, menu: true),
-            entry("Inverse Selection", "i", 9, menu: true), entry("Select Subject", "a", 3, menu: true),
-            entry("Last Filter", "f", 5, menu: true), entry("Curves", "m", 1, menu: true), entry("Levels", "l", 1, menu: true),
-            entry("Hue/Saturation", "u", 1, menu: true), entry("Invert Pixels / Mask", "i", 1, menu: true),
-            entry("Canvas Size", "c", 3, menu: true), entry("Image Size", "i", 3, menu: true),
-            entry("Transform Layer / Selection", "t", 1, menu: true), entry("Duplicate / Layer via Copy", "j", 1, menu: true),
-            entry("Toggle Clipping Mask", "g", 3, menu: true), entry("Group Layers", "g", 1, menu: true),
-            entry("Ungroup Layers", "g", 9, menu: true),
-            entry("New Blank Layer", "n", 9, menu: true), entry("Move Layer Up", "]", 1, menu: true),
-            entry("Move Layer Down", "[", 1, menu: true), entry("Merge Layers", "e", 1, menu: true),
+            entry(.newCanvas, "New Canvas"), entry(.openProject, "Open Project"),
+            entry(.save, "Save"), entry(.saveAs, "Save As"),
+            entry(.exportJPEG, "Export JPEG"), entry(.exportPNG, "Export PNG"), entry("Export As", "w", 11, menu: true),
+            entry(.closeTab, "Close Project"), entry(.fitCanvas, "Fit Canvas"), entry(.searchCommands, "Search Commands"),
+            entry(.actualPixels, "Actual Pixels"), entry(.zoomIn, "Zoom In"),
+            entry(.zoomOut, "Zoom Out"), entry("Show Transform Controls", "h", 1, menu: true),
+            entry("Hide Compositor", "h", 3, menu: true), entry(.cut, "Cut"),
+            entry(.copy, "Copy"), entry(.copyMerged, "Copy Merged"),
+            entry(.paste, "Paste"), entry(.fillForeground, "Fill with Foreground"),
+            entry(.fillBackground, "Fill with Background"), entry(.filter(.contentAwareFill), "Content-Aware Fill"),
+            entry(.selectAll, "Select All"), entry(.deselect, "Deselect"),
+            entry(.invertSelection, "Inverse Selection"), entry(.selectSubject, "Select Subject"),
+            entry("Last Filter", "f", 5, menu: true), entry("Curves", "m", 1, menu: true), entry(.levels, "Levels"),
+            entry(.hueSaturation, "Hue/Saturation"), entry(.invertPixels, "Invert Pixels / Mask"),
+            entry(.canvasSize, "Canvas Size"), entry(.imageSize, "Image Size"),
+            entry(.transform, "Transform Layer / Selection"), entry(.layerViaCopy, "Duplicate / Layer via Copy"),
+            entry(.toggleClipping, "Toggle Clipping Mask"), entry(.groupLayers, "Group Layers"),
+            entry(.ungroupLayers, "Ungroup Layers"),
+            entry(.newBlankLayer, "New Blank Layer"), entry(.moveLayerUp, "Move Layer Up"),
+            entry(.moveLayerDown, "Move Layer Down"), entry(.mergeLayers, "Merge Layers"),
             entry("Show Grid", "'", 1, menu: true), entry("Show Guides", ";", 1, menu: true),
             entry("Show Rulers", "r", 1, menu: true), entry("Snap", ";", 9, menu: true),
             entry("Lock Guides", ";", 3, menu: true),
@@ -184,6 +188,10 @@ final class ShortcutSettings {
         overrides = accepted
     }
     func chord(_ definition: ShortcutDefinition) -> ShortcutChord { overrides[definition.id] ?? definition.original }
+    /// The key listed for `original`, with whatever the person gave it: what a menu item answers to.
+    func chord(for original: ShortcutChord) -> ShortcutChord {
+        ShortcutDefinition.all.first { $0.isMenu && $0.original == original }.map(chord) ?? original
+    }
     func menu(_ key: KeyEquivalent, modifiers: EventModifiers) -> ShortcutChord {
         let bits = (modifiers.contains(.command) ? 1 : 0) | (modifiers.contains(.option) ? 2 : 0)
             | (modifiers.contains(.control) ? 4 : 0) | (modifiers.contains(.shift) ? 8 : 0)
@@ -272,6 +280,11 @@ extension View {
     }
     func configuredKeyboardShortcut(_ key: KeyEquivalent, modifiers: EventModifiers = .command) -> some View {
         keyboardShortcut(ShortcutSettings.shared.menu(key, modifiers: modifiers).keyboardShortcut)
+    }
+    /// The key both UIs give a command, as the shared catalog names it, with whatever the person gave it here.
+    func configuredKeyboardShortcut(_ command: Command) -> some View {
+        let chord = command.shortcut.map { ShortcutChord($0.key, $0.modifiers) }
+        return keyboardShortcut(chord.flatMap { ShortcutSettings.shared.chord(for: $0).keyboardShortcut })
     }
     /// For a menu item that ships without a key: the one the person gave it in Keyboard Shortcuts, if any.
     func assignableShortcut(_ title: String) -> some View {

@@ -47,7 +47,7 @@ struct TransformOverlayGeometry: Equatable {
     }
 }
 
-/// What's drawn over the canvas, the same on the Mac and iPad: the layout grid and guides; the crop frame, a
+/// What's drawn over the canvas, the same on the Mac and in the iOS app: the layout grid and guides; the crop frame, a
 /// gradient's or Progressive Blur's line or the transform box; the selection's marching ants and an outline being drawn; and the lines a
 /// move snaps to. A view showing it draws it into its own context; it never draws image pixels, so selecting a layer
 /// doesn't redraw them.

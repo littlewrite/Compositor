@@ -6,7 +6,7 @@ import UIKit
 import UniformTypeIdentifiers
 
 // The few things the document model, the file formats and the renderers need from the platform's UI framework, kept
-// here so the rest of Document, IO and Rendering builds for macOS and iPadOS alike. The Mac's behavior is exactly
+// here so the rest of Document, IO and Rendering builds for macOS and iOS alike. The Mac's behavior is exactly
 // what it was when those files called AppKit themselves.
 
 #if os(macOS)
@@ -27,6 +27,18 @@ extension UIColor {
 #endif
 
 enum Platform {
+    /// The offset a tiled image starts at, as Core Image's affine tile takes it: an `NSAffineTransform` on the Mac, an
+    /// `NSValue` of a `CGAffineTransform` on iOS.
+    nonisolated static func affineTileOffset(x: CGFloat, y: CGFloat) -> Any {
+        #if os(macOS)
+        let transform = NSAffineTransform()
+        transform.translateX(by: x, yBy: y)
+        return transform
+        #else
+        return NSValue(cgAffineTransform: CGAffineTransform(translationX: x, y: y))
+        #endif
+    }
+
     /// The system's accent color, for the transform box and the lines a move snaps to.
     static var accentColor: PlatformColor {
         #if os(macOS)
@@ -36,7 +48,7 @@ enum Platform {
         #endif
     }
 
-    /// The alert sound for a command that can't run just now. iPadOS has no alert sound; it taps instead.
+    /// The alert sound for a command that can't run just now. iOS has no alert sound; it taps instead.
     static func beep() {
         #if os(macOS)
         NSSound.beep()
@@ -83,9 +95,37 @@ enum Platform {
     }
 }
 
+#if os(iOS)
+extension Platform {
+    /// Brings a window of another scene forward, as opening its project again does.
+    static func activate(_ scene: UIWindowScene) {
+        UIApplication.shared.activateSceneSession(for: UISceneSessionActivationRequest(session: scene.session))
+    }
+
+    /// Time asked of iOS to finish work should the app leave the screen meanwhile.
+    static func beginBackgroundTask(named name: String, expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
+        UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: expirationHandler)
+    }
+
+    static func endBackgroundTask(_ id: UIBackgroundTaskIdentifier) {
+        UIApplication.shared.endBackgroundTask(id)
+    }
+
+    /// Sends a menu command down the responder chain, to the window in front.
+    static func sendAction(_ action: Selector, from sender: Any?) {
+        UIApplication.shared.sendAction(action, to: nil, from: sender, for: nil)
+    }
+
+    /// Opens a URL with whatever app the system has for it.
+    static func open(_ url: URL) {
+        UIApplication.shared.open(url)
+    }
+}
+#endif
+
 /// The pasteboard pixels are copied to for other apps and pasted from, and the marker a copied layer leaves so Paste
 /// in another project knows where it came from: the system's, except under the Mac's tests, where each test process
-/// gets one of its own, so tests running in parallel processes don't copy over each other's pixels. The iPad's tests
+/// gets one of its own, so tests running in parallel processes don't copy over each other's pixels. The iOS tests
 /// run one at a time, and write to the general pasteboard themselves.
 enum SystemPasteboard {
     static let layerType = "com.compositor.copied-layer"
@@ -136,7 +176,7 @@ enum SystemPasteboard {
         #endif
     }
 
-    /// The image another app copied, if there is one. On iPad it's turned upright first: a photo copied in Photos comes
+    /// The image another app copied, if there is one. On iOS it's turned upright first: a photo copied in Photos comes
     /// as the camera stored it, with the turn that shows it upright kept beside the pixels rather than in them.
     static func image() -> CGImage? {
         #if os(macOS)

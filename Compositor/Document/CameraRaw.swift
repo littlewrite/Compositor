@@ -379,6 +379,11 @@ nonisolated struct CameraRawScope: Equatable, Sendable {
 
     /// Preview image plus the scope of the grade itself, without Option-drag or indicator paint.
     static func preview(_ job: FilterJob) throws -> (image: CGImage, scope: Self) {
+        // A concurrency thread's stack is too small for the grade and the scope that reads it back.
+        try BigStack.run { try previewBody(job) }
+    }
+
+    private static func previewBody(_ job: FilterJob) throws -> (image: CGImage, scope: Self) {
         var grade = job
         grade.cameraRawClipping = nil
         grade.showsShadowClipping = false

@@ -489,6 +489,12 @@ nonisolated enum PixelFilter {
     /// and multiplied back (`DeepLayer.normalizing`) — run once here, where OK runs them several times and reads
     /// between, too slow for every slider move and too fine to see.
     static func previewHDR(_ job: FilterJob, from hdr: CGImage) throws -> CGImage {
+        // As `run`: the job carries the whole FilterSettings, and a concurrency thread's stack is too small for a copy
+        // of it plus the Core Image work below.
+        try BigStack.run { try previewHDRBody(job, from: hdr) }
+    }
+
+    private static func previewHDRBody(_ job: FilterJob, from hdr: CGImage) throws -> CGImage {
         var run = job
         run.image = hdr
         if job.kind.runsAtSixteenBits {

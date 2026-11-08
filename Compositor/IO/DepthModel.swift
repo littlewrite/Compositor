@@ -50,7 +50,7 @@ nonisolated enum DepthModel {
     /// Loads the model, downloading and compiling it the first time. True once it's ready; false if it couldn't be
     /// had (no connection, a file that doesn't match), to be tried again next time.
     @discardableResult static func prepare() async -> Bool {
-        // The iPad fetches nothing: Volumetric Light keeps to the fog's own guess there.
+        // The iOS app fetches nothing: Volumetric Light keeps to the fog's own guess there.
         #if os(iOS)
         return false
         #else

@@ -36,16 +36,13 @@ final class ProjectWorkspace {
         tabs = [first]; selectedID = first.id
         first.controller.workspace = self
     }
-    /// A new tab's name: "Untitled" if no tab shows it, otherwise the lowest "Untitled N" free, as Finder and Safari
-    /// number them. Counting up for ever, closing the last tab made Untitled 2, then 3, and on.
+    /// A new tab's name: "Untitled" if no tab shows it, otherwise the lowest "Untitled N" free.
     private var freeUntitledName: String {
-        let taken = Set(tabs.map(\.title))
-        guard taken.contains("Untitled") else { return "Untitled" }
-        return (2...).lazy.map { "Untitled \($0)" }.first { !taken.contains($0) }!
+        TabWorkspace.freeUntitledName(taken: Set(tabs.map(\.title)))
     }
     /// Whether a tab can close: not the only one while it's empty, the blank start it would only be replaced with.
     func canClose(_ tab: ProjectTab) -> Bool {
-        !(tabs.count == 1 && tab.session.document == nil && tab.session.projectURL == nil)
+        TabWorkspace.canClose(tabCount: tabs.count, isEmpty: tab.session.document == nil && tab.session.projectURL == nil)
     }
     @discardableResult
     func addTab(reuseEmpty: Bool = true) -> ProjectTab {
@@ -141,7 +138,7 @@ final class ProjectWorkspace {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs.remove(at: index)
         if tabs.isEmpty { _ = addTab(reuseEmpty: false) }
-        else if selectedID == id { selectedID = tabs[min(index, tabs.count-1)].id }
+        else if selectedID == id { selectedID = tabs[TabWorkspace.indexAfterClosing(index, remaining: tabs.count)].id }
     }
     /// The order Quit (and closing the window) asks about unsaved projects: the tab on screen first,
     /// then the rest left to right, so it never jumps to another project before the one you're viewing.
@@ -157,16 +154,7 @@ final class ProjectWorkspace {
     /// (a filter, Levels, Hue/Saturation, the color picker…) is cancelled, as its Cancel button would, so nothing is
     /// applied that wasn't OK'd.
     func settlePendingEdits() async {
-        let session = current.session
-        if session.gradientEdit != nil { await session.commitGradient() }
-        if session.pixelMove != nil { await session.finishPixelMove() }
-        session.cancelFilter()
-        session.cancelHueSaturation()
-        session.cancelLevels()
-        session.finishAdjustmentEditing(commit: false)
-        session.cancelColorRange()
-        session.selectionAmountOperation = nil
-        if session.colorPicker != nil { session.closeColorPicker(commit: false) }
+        await current.session.settlePendingEdits()
     }
     func confirmQuit() async -> Bool {
         guard !isManaging, finishTextEditing() else { return false }

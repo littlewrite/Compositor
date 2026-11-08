@@ -851,7 +851,7 @@ final class EditorSession {
     /// Tests assign this to develop without a sheet.
     @ObservationIgnored var confirmRawDevelop: ((URL, RawDevelopSettings) async -> RawDevelopSettings?)?
     /// Import develops the full frame at 16 bits a channel, for a 16-bit layer that keeps the RAW's latitude
-    /// (`DeepLayer`); off, at 8 bits, dithered, as any other image comes in. The iPad's window turns it off.
+    /// (`DeepLayer`); off, at 8 bits, dithered, as any other image comes in. The mobile window turns it off.
     @ObservationIgnored var developsRawAtSixteenBits = true
 
     /// Puts the develop sheet up and waits for the choice; nil means the import was cancelled.

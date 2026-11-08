@@ -29,7 +29,7 @@
 			containerPortal = 8F311F91304F03BB0017D14F /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A1C0DE000000000000000001;
-			remoteInfo = CompositorPad;
+			remoteInfo = CompositorMobile;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -37,8 +37,8 @@
 		8F311F99304F03BB0017D14F /* Compositor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Compositor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F311FA6304F03BC0017D14F /* CompositorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1C0DE000000000000000002 /* CompositorPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1C0DE000000000000000012 /* CompositorPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C0DE000000000000000002 /* CompositorMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C0DE000000000000000012 /* CompositorMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -57,14 +57,14 @@
 			path = CompositorUITests;
 			sourceTree = "<group>";
 		};
-		A1C0DE000000000000000003 /* CompositorPad */ = {
+		A1C0DE000000000000000003 /* CompositorMobile */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = CompositorPad;
+			path = CompositorMobile;
 			sourceTree = "<group>";
 		};
-		A1C0DE00000000000000001B /* CompositorPadTests */ = {
+		A1C0DE00000000000000001B /* CompositorMobileTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = CompositorPadTests;
+			path = CompositorMobileTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -112,8 +112,8 @@
 			isa = PBXGroup;
 			children = (
 				8F311F9B304F03BB0017D14F /* Compositor */,
-				A1C0DE000000000000000003 /* CompositorPad */,
-				A1C0DE00000000000000001B /* CompositorPadTests */,
+				A1C0DE000000000000000003 /* CompositorMobile */,
+				A1C0DE00000000000000001B /* CompositorMobileTests */,
 				8F311FA9304F03BC0017D14F /* CompositorTests */,
 				8F311FB3304F03BC0017D14F /* CompositorUITests */,
 				8F311F9A304F03BB0017D14F /* Products */,
@@ -126,8 +126,8 @@
 				8F311F99304F03BB0017D14F /* Compositor.app */,
 				8F311FA6304F03BC0017D14F /* CompositorTests.xctest */,
 				8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */,
-				A1C0DE000000000000000002 /* CompositorPad.app */,
-				A1C0DE000000000000000012 /* CompositorPadTests.xctest */,
+				A1C0DE000000000000000002 /* CompositorMobile.app */,
+				A1C0DE000000000000000012 /* CompositorMobileTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -201,9 +201,9 @@
 			productReference = 8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		A1C0DE000000000000000001 /* CompositorPad */ = {
+		A1C0DE000000000000000001 /* CompositorMobile */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1C0DE00000000000000000A /* Build configuration list for PBXNativeTarget "CompositorPad" */;
+			buildConfigurationList = A1C0DE00000000000000000A /* Build configuration list for PBXNativeTarget "CompositorMobile" */;
 			buildPhases = (
 				A1C0DE000000000000000005 /* Sources */,
 				A1C0DE000000000000000006 /* Frameworks */,
@@ -215,18 +215,18 @@
 			);
 			fileSystemSynchronizedGroups = (
 				8F311F9B304F03BB0017D14F /* Compositor */,
-				A1C0DE000000000000000003 /* CompositorPad */,
+				A1C0DE000000000000000003 /* CompositorMobile */,
 			);
-			name = CompositorPad;
+			name = CompositorMobile;
 			packageProductDependencies = (
 			);
-			productName = CompositorPad;
-			productReference = A1C0DE000000000000000002 /* CompositorPad.app */;
+			productName = CompositorMobile;
+			productReference = A1C0DE000000000000000002 /* CompositorMobile.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A1C0DE000000000000000011 /* CompositorPadTests */ = {
+		A1C0DE000000000000000011 /* CompositorMobileTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1C0DE000000000000000018 /* Build configuration list for PBXNativeTarget "CompositorPadTests" */;
+			buildConfigurationList = A1C0DE000000000000000018 /* Build configuration list for PBXNativeTarget "CompositorMobileTests" */;
 			buildPhases = (
 				A1C0DE000000000000000013 /* Sources */,
 				A1C0DE000000000000000014 /* Frameworks */,
@@ -239,13 +239,13 @@
 			);
 			fileSystemSynchronizedGroups = (
 				8F311FA9304F03BC0017D14F /* CompositorTests */,
-				A1C0DE00000000000000001B /* CompositorPadTests */,
+				A1C0DE00000000000000001B /* CompositorMobileTests */,
 			);
-			name = CompositorPadTests;
+			name = CompositorMobileTests;
 			packageProductDependencies = (
 			);
-			productName = CompositorPadTests;
-			productReference = A1C0DE000000000000000012 /* CompositorPadTests.xctest */;
+			productName = CompositorMobileTests;
+			productReference = A1C0DE000000000000000012 /* CompositorMobileTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -296,8 +296,8 @@
 				8F311F98304F03BB0017D14F /* Compositor */,
 				8F311FA5304F03BC0017D14F /* CompositorTests */,
 				8F311FAF304F03BC0017D14F /* CompositorUITests */,
-				A1C0DE000000000000000001 /* CompositorPad */,
-				A1C0DE000000000000000011 /* CompositorPadTests */,
+				A1C0DE000000000000000001 /* CompositorMobile */,
+				A1C0DE000000000000000011 /* CompositorMobileTests */,
 			);
 		};
 /* End PBXProject section */
@@ -391,7 +391,7 @@
 		};
 		A1C0DE000000000000000019 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A1C0DE000000000000000001 /* CompositorPad */;
+			target = A1C0DE000000000000000001 /* CompositorMobile */;
 			targetProxy = A1C0DE00000000000000001A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -688,32 +688,32 @@
 		};
 		A1C0DE000000000000000008 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = A1C0DE000000000000000003 /* CompositorPad */;
-			baseConfigurationReferenceRelativePath = CompositorPad.xcconfig;
+			baseConfigurationReferenceAnchor = A1C0DE000000000000000003 /* CompositorMobile */;
+			baseConfigurationReferenceRelativePath = CompositorMobile.xcconfig;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		A1C0DE000000000000000009 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = A1C0DE000000000000000003 /* CompositorPad */;
-			baseConfigurationReferenceRelativePath = CompositorPad.xcconfig;
+			baseConfigurationReferenceAnchor = A1C0DE000000000000000003 /* CompositorMobile */;
+			baseConfigurationReferenceRelativePath = CompositorMobile.xcconfig;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		A1C0DE000000000000000016 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = A1C0DE00000000000000001B /* CompositorPadTests */;
-			baseConfigurationReferenceRelativePath = CompositorPadTests.xcconfig;
+			baseConfigurationReferenceAnchor = A1C0DE00000000000000001B /* CompositorMobileTests */;
+			baseConfigurationReferenceRelativePath = CompositorMobileTests.xcconfig;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		A1C0DE000000000000000017 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = A1C0DE00000000000000001B /* CompositorPadTests */;
-			baseConfigurationReferenceRelativePath = CompositorPadTests.xcconfig;
+			baseConfigurationReferenceAnchor = A1C0DE00000000000000001B /* CompositorMobileTests */;
+			baseConfigurationReferenceRelativePath = CompositorMobileTests.xcconfig;
 			buildSettings = {
 			};
 			name = Release;
@@ -757,7 +757,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1C0DE00000000000000000A /* Build configuration list for PBXNativeTarget "CompositorPad" */ = {
+		A1C0DE00000000000000000A /* Build configuration list for PBXNativeTarget "CompositorMobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1C0DE000000000000000008 /* Debug */,
@@ -766,7 +766,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1C0DE000000000000000018 /* Build configuration list for PBXNativeTarget "CompositorPadTests" */ = {
+		A1C0DE000000000000000018 /* Build configuration list for PBXNativeTarget "CompositorMobileTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1C0DE000000000000000016 /* Debug */,

@@ -1,7 +1,6 @@
 import Foundation
 import CoreGraphics
 import ImageIO
-import Synchronization
 import UniformTypeIdentifiers
 
 extension UTType {
@@ -407,6 +406,7 @@ actor ProjectStore {
         var images: [UUID: ImportedImage] = [:]
         var masks: [UUID: ImportedImage] = [:]
         var files: [PackedImage] = []
+        var thumbnailsDone = 0
         var held: [(asset: ImportedImage, mask: Bool, exr: Bool, data: Data)] = []
         var pixels = 0, maskPixels = 0, gifFileBytes = 0
         for (index, layer) in manifest.layers.enumerated() {
@@ -453,6 +453,9 @@ actor ProjectStore {
             if layer.gif != nil, !isMask, asset.deep != nil { throw ProjectError.invalid }
             if isMask { masks[layer.id] = asset } else { images[layer.id] = asset }
             held.append((asset, isMask, exr, bytes))
+            // Its image and thumbnail are made as it's read, as the files read a few at once make theirs.
+            thumbnailsDone += 1
+            progress?(.thumbnails(done: thumbnailsDone))
           }
             if let gif = layer.gif {
                 let file = url.appendingPathComponent("images").appendingPathComponent(gif.sourceFile)
@@ -480,7 +483,7 @@ actor ProjectStore {
           progress?(.layers(done: index + 1))
         }
         var framePixels: [UUID: [Int: ImportedImage]] = [:]
-        let assets = try assets(for: files, progress: progress)
+        let assets = try assets(for: files, progress: progress, done: thumbnailsDone)
         for (file, asset) in zip(files, assets) {
             if let frame = file.frame { framePixels[file.layer, default: [:]][frame] = asset }
             else if file.isMask { masks[file.layer] = asset } else { images[file.layer] = asset }
@@ -531,10 +534,10 @@ actor ProjectStore {
 
     /// `files` read, a few at once: their thumbnails are most of the time a package takes to read. Throws the first
     /// file's error, in package order.
-    private nonisolated static func assets(for files: [PackedImage],
-                                           progress: (@Sendable (ReadProgress) -> Void)?) throws -> [ImportedImage] {
+    private nonisolated static func assets(for files: [PackedImage], progress: (@Sendable (ReadProgress) -> Void)?,
+                                           done: Int = 0) throws -> [ImportedImage] {
         let results = Mutex([Result<ImportedImage, any Error>?](repeating: nil, count: files.count))
-        let next = Atomic(0), finished = Atomic(0)
+        let next = Atomic(0), finished = Atomic(done)
         // Four at a time, as many as the iPad has performance cores; each takes the next file as soon as it's done.
         DispatchQueue.concurrentPerform(iterations: min(4, files.count)) { _ in
             while true {

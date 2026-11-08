@@ -6,9 +6,23 @@ struct CompositorApp: App {
     @NSApplicationDelegateAdaptor(CompositorApplicationDelegate.self) private var applicationDelegate
     @AppStorage("navigator.visible") private var showsNavigator = false
     private var session: EditorSession { applicationDelegate.session }
+    /// What the menus' commands act on, as the shared catalog asks it.
+    private var commandContext: CommandContext {
+        var context = CommandContext(session: session)
+        context.hasFile = session.document != nil
+        context.hasDocument = session.document != nil
+        context.canStartProjectOperation = applicationDelegate.projects.canStart
+        context.changedOnDisk = session.changedOnDisk
+        context.canSwitch = applicationDelegate.projects.canStart
+        context.canCloseTab = applicationDelegate.workspace.canClose(applicationDelegate.workspace.current)
+        context.hasRecentProjects = !RecentProjects.shared.urls.isEmpty
+        context.canPasteLayers = session.copiedLayer != nil
+        return context
+    }
+    private func enabled(_ command: Command) -> Bool { CommandCatalog.isEnabled(command, in: commandContext) }
     private func filterMenuItem(_ kind: FilterKind) -> some View {
         Button(kind.displayName + "…") { session.beginFilter(kind) }
-            .disabled(!(kind == .vignette ? session.canVignette : session.canAdjustColors) || session.hueSaturation != nil)
+            .disabled(!enabled(.filter(kind)))
     }
     var body: some Scene {
         Window("Compositor", id: "editor") {
@@ -60,13 +74,13 @@ struct CompositorApp: App {
                     Button("New Canvas…") {
                         applicationDelegate.showEditor?()
                         Task { await applicationDelegate.projects.newCanvas() }
-                    }.configuredKeyboardShortcut("n")
-                        .disabled(!applicationDelegate.projects.canStart)
+                    }.configuredKeyboardShortcut(.newCanvas)
+                        .disabled(!enabled(.newCanvas))
                     Button("Open Project…") {
                         applicationDelegate.showEditor?()
                         Task { await applicationDelegate.projects.open() }
                     }
-                        .configuredKeyboardShortcut("o").disabled(!applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.openProject).disabled(!enabled(.openProject))
                     Menu("Open Recent") {
                         ForEach(RecentProjects.shared.urls, id: \.self) { url in
                             Button(url.deletingPathExtension().lastPathComponent) {
@@ -76,36 +90,36 @@ struct CompositorApp: App {
                         }
                         Divider()
                         Button("Clear Menu") { RecentProjects.shared.clear() }
-                            .disabled(RecentProjects.shared.urls.isEmpty)
+                            .disabled(!enabled(.clearRecentProjects))
                     }
-                        .disabled(!applicationDelegate.projects.canStart)
+                        .disabled(!enabled(.openRecentProject))
                     Button("Import…") { session.showsImporter = true }
-                        .disabled(session.levels != nil || session.showsBusy || session.isImporting || session.showsNewDocument)
+                        .disabled(!enabled(.importFiles))
                 }
                 CommandGroup(replacing: .saveItem) {
                     Button("Save") { Task { await applicationDelegate.projects.save() } }
-                        .configuredKeyboardShortcut("s").disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.save).disabled(!enabled(.save))
                     Button("Save As…") { Task { await applicationDelegate.projects.save(asNew: true) } }
-                        .configuredKeyboardShortcut("s", modifiers: [.command, .shift])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.saveAs)
+                        .disabled(!enabled(.saveAs))
                     Divider()
                     // Export As on JPEG.
                     Button("Export JPEG…") { Task { await applicationDelegate.projects.exportAs(start: .jpeg) } }
-                        .configuredKeyboardShortcut("s", modifiers: [.command, .option, .shift])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.exportJPEG)
+                        .disabled(!enabled(.exportJPEG))
                     Button("Export PNG…") { Task { await applicationDelegate.projects.exportPNG() } }
-                        .configuredKeyboardShortcut("e", modifiers: [.command, .shift])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.exportPNG)
+                        .disabled(!enabled(.exportPNG))
                     // Still images or GIF timelines, sized and previewed; ⌥⇧⌘W, as Photoshop's Export As.
                     Button("Export As…") { Task { await applicationDelegate.projects.exportAs() } }
                         .configuredKeyboardShortcut("w", modifiers: [.command, .option, .shift])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .disabled(!enabled(.exportAs))
                     Divider()
                     Button("Close Project") {
                         if let window = applicationDelegate.projects.window {
                             Task { await applicationDelegate.projects.close(window) }
                         }
-                    }.configuredKeyboardShortcut("w").disabled(!applicationDelegate.projects.canStart)
+                    }.configuredKeyboardShortcut(.closeTab).disabled(!enabled(.closeTab))
                 }
                 // Grouped: a commands builder takes at most ten items.
                 Group {
@@ -118,7 +132,7 @@ struct CompositorApp: App {
                         Button("Search Commands…") {
                             CommandPaletteController.shared.toggle(session: session, over: applicationDelegate.projects.window)
                         }
-                        .configuredKeyboardShortcut("f", modifiers: [.command])
+                        .configuredKeyboardShortcut(.searchCommands)
                         // A plain F, shown as menus show keys; the app hands an F meant for a text field to the field
                         // first (see CompositorApplicationDelegate).
                         Toggle("Toggle Fullscreen", isOn: Binding(get: { session.canvasOnly },
@@ -129,20 +143,20 @@ struct CompositorApp: App {
                         // With a dialog's preview open (Export As), these zoom that preview rather than the canvas.
                         Button("Fit Canvas") {
                             if let preview = session.previewZoom { preview(.fit) } else { session.fit() }
-                        }.configuredKeyboardShortcut("0").disabled(session.document == nil)
+                        }.configuredKeyboardShortcut(.fitCanvas).disabled(!enabled(.fitCanvas))
                         Button("Actual Pixels") {
                             if let preview = session.previewZoom { preview(.actual) } else { session.zoom(to: 1) }
-                        }.configuredKeyboardShortcut("1").disabled(session.document == nil)
+                        }.configuredKeyboardShortcut(.actualPixels).disabled(!enabled(.actualPixels))
                         Button("Zoom In") {
                             guard !(NSApp.keyWindow?.firstResponder is NSText) else { return }
                             if let preview = session.previewZoom { preview(.zoomIn) } else { session.zoomKeyboard(by: 1) }
                         }
-                            .configuredKeyboardShortcut("=").disabled(session.document == nil)
+                            .configuredKeyboardShortcut(.zoomIn).disabled(!enabled(.zoomIn))
                         Button("Zoom Out") {
                             guard !(NSApp.keyWindow?.firstResponder is NSText) else { return }
                             if let preview = session.previewZoom { preview(.zoomOut) } else { session.zoomKeyboard(by: -1) }
                         }
-                            .configuredKeyboardShortcut("-").disabled(session.document == nil)
+                            .configuredKeyboardShortcut(.zoomOut).disabled(!enabled(.zoomOut))
                         Toggle("Navigator (300% and above)", isOn: $showsNavigator)
                         Toggle("Pixel Grid (800% and above)", isOn: Binding(get: { session.showsPixelGrid },
                                                                               set: { session.showsPixelGrid = $0 }))
@@ -188,7 +202,7 @@ struct CompositorApp: App {
                                     .disabled(session.document == nil)
                             }
                             Button("Grid Settings…") { Task { await applicationDelegate.projects.gridSettings() } }
-                                .disabled(session.document == nil)
+                                .disabled(!enabled(.gridSettings))
                             Toggle("Rulers", isOn: Binding(get: { session.showsRulers }, set: { session.showsRulers = $0 }))
                                 .configuredKeyboardShortcut("r").disabled(session.document == nil)
                             Divider()
@@ -209,7 +223,7 @@ struct CompositorApp: App {
                             Toggle("Lock Guides", isOn: Binding(get: { session.locksGuides }, set: { session.locksGuides = $0 }))
                                 .configuredKeyboardShortcut(";", modifiers: [.command, .option]).disabled(session.document == nil)
                             Button("Clear Guides") { session.clearGuides() }
-                                .disabled(!session.canClearGuides)
+                                .disabled(!enabled(.clearGuides))
                         }
                     }
                     // ⌘H toggles the transform controls or extras instead of hiding the app, so Hide keeps its
@@ -233,15 +247,15 @@ struct CompositorApp: App {
                         else if session.selection != nil, session.canCopyPixels { Task { await session.cutSelection() } }
                         else { NSSound.beep() }
                     }
-                        .configuredKeyboardShortcut("x")
+                        .configuredKeyboardShortcut(.cut)
                     Button("Copy") {
                         if NSApp.isEditingText { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil) }
                         else if session.canCopyPixels || session.canCopyLayer { session.copySelection() }
                         else { NSSound.beep() }
                     }
-                        .configuredKeyboardShortcut("c")
+                        .configuredKeyboardShortcut(.copy)
                     Button("Copy Merged") { session.copyMergedSelection() }
-                        .configuredKeyboardShortcut("c", modifiers: [.command, .shift]).disabled(!session.canCopyMerged)
+                        .configuredKeyboardShortcut(.copyMerged).disabled(!enabled(.copyMerged))
                     Button("Paste") {
                         // On the New canvas screen an image on the clipboard makes the canvas, even with a size field
                         // being typed in; a size copied as text still goes into the field.
@@ -251,7 +265,7 @@ struct CompositorApp: App {
                         else if session.canPaste { session.paste() }
                         else { NSSound.beep() }
                     }
-                        .configuredKeyboardShortcut("v")
+                        .configuredKeyboardShortcut(.paste)
                 }
                 CommandGroup(after: .pasteboard) {
                     Divider()
@@ -262,17 +276,17 @@ struct CompositorApp: App {
                             NSApp.sendAction(#selector(NSResponder.deleteWordBackward(_:)), to: nil, from: nil)
                         } else { Task { await session.fillSelection(with: .foreground) } }
                     }
-                        .configuredKeyboardShortcut(.delete, modifiers: .option).disabled(!session.canEditPixels)
+                        .configuredKeyboardShortcut(.fillForeground).disabled(!enabled(.fillForeground))
                     Button("Fill with Background Color") {
                         if NSApp.isEditingText {
                             NSApp.sendAction(#selector(NSResponder.deleteToBeginningOfLine(_:)), to: nil, from: nil)
                         } else { Task { await session.fillSelection(with: .background) } }
                     }
-                        .configuredKeyboardShortcut(.delete, modifiers: .command).disabled(!session.canEditPixels)
+                        .configuredKeyboardShortcut(.fillBackground).disabled(!enabled(.fillBackground))
                     Button("Clear Selection Pixels") { Task { await session.clearSelectedPixels() } }
-                        .disabled(session.selection == nil || !session.canEditPixels)
+                        .disabled(!enabled(.clearSelectionPixels))
                     Button("Content-Aware Fill…") { session.beginFilter(.contentAwareFill) }
-                        .configuredKeyboardShortcut(.delete, modifiers: .shift).disabled(!session.canContentAwareFill)
+                        .configuredKeyboardShortcut(.filter(.contentAwareFill)).disabled(!enabled(.filter(.contentAwareFill)))
                 }
                 CommandMenu("Select") {
                     // A field being edited keeps its own Select All: offer it to the responder chain
@@ -286,66 +300,66 @@ struct CompositorApp: App {
                         // Never disabled: on macOS this menu item is what binds Cmd-A to selectAll:, so
                         // switching it off takes Select All away from every text field too. With no
                         // document and nothing being edited the action simply does nothing.
-                        .configuredKeyboardShortcut("a")
+                        .configuredKeyboardShortcut(.selectAll)
                     Button("Deselect") { session.deselect() }
-                        .configuredKeyboardShortcut("d").disabled(session.selection == nil || !session.canEditSelection)
+                        .configuredKeyboardShortcut(.deselect).disabled(!enabled(.deselect))
                     Button("Inverse") { session.invertSelection() }
-                        .configuredKeyboardShortcut("i", modifiers: [.command, .shift])
-                        .disabled(session.selection == nil || !session.canEditSelection)
+                        .configuredKeyboardShortcut(.invertSelection)
+                        .disabled(!enabled(.invertSelection))
                     Button("Layer's Pixels") {
                         if let id = session.activeLayerID { session.loadLayerSelection(layerID: id) }
                     }
-                        .disabled(session.activeLayer?.asset == nil || !session.canEditSelection)
+                        .disabled(!enabled(.selectLayerPixels))
                     Button("Subject") { Task { await session.selectSubject() } }
-                        .configuredKeyboardShortcut("a", modifiers: [.command, .option])
-                        .disabled(!session.canSelectSubject)
+                        .configuredKeyboardShortcut(.selectSubject)
+                        .disabled(!enabled(.selectSubject))
                     Button("Color Range…") { session.beginColorRange() }
-                        .disabled(!session.canSelectColorRange)
+                        .disabled(!enabled(.colorRange))
                     Button("Mask's Black Areas") {
                         if let id = session.activeLayerID { session.loadMaskSelection(layerID: id) }
                     }
                         .disabled(session.activeLayer.flatMap { session.selectedMask(for: $0) } == nil || !session.canEditSelection)
                     Divider()
                     Button("Expand…") { session.promptSelectionAmount(.expand) }
-                        .disabled(!session.canModifySelection)
+                        .disabled(!enabled(.expandSelection))
                     Button("Contract…") { session.promptSelectionAmount(.contract) }
-                        .disabled(!session.canModifySelection)
+                        .disabled(!enabled(.contractSelection))
                     Button("Feather…") { session.promptSelectionAmount(.feather) }
-                        .disabled(!session.canModifySelection)
+                        .disabled(!enabled(.featherSelection))
                 }
                 CommandMenu("Image") {
                     Button("Curves…") { session.beginFilter(.curves) }
-                        .configuredKeyboardShortcut("m").disabled(!session.canAdjustColors || session.hueSaturation != nil)
+                        .configuredKeyboardShortcut("m").disabled(!enabled(.curves))
                     Button("Levels…") { session.beginLevels() }
-                        .configuredKeyboardShortcut("l").disabled(!session.canAdjustColors || session.hueSaturation != nil)
+                        .configuredKeyboardShortcut(.levels).disabled(!enabled(.levels))
                     Button("Hue/Saturation…") { session.beginHueSaturation() }
-                        .configuredKeyboardShortcut("u").disabled(!session.canAdjustColors)
+                        .configuredKeyboardShortcut(.hueSaturation).disabled(!enabled(.hueSaturation))
                     ForEach([FilterKind.blackWhite, .colorBalance, .exposure, .gradientMap, .grain], id: \.self) { kind in
                         Button(kind.displayName + "…") { session.beginFilter(kind) }
-                            .disabled(!session.canAdjustColors || session.hueSaturation != nil)
+                            .disabled(!enabled(.filter(kind)))
                     }
                     Button(session.isMaskSelected ? "Invert Mask".localized : "Invert".localized) { Task { await session.invertPixels() } }
-                        .configuredKeyboardShortcut("i")
-                        .disabled(!session.canInvert)
+                        .configuredKeyboardShortcut(.invertPixels)
+                        .disabled(!enabled(.invertPixels))
                     Divider()
                     Button("Canvas Size…") { Task { await applicationDelegate.projects.canvasSize() } }
-                        .configuredKeyboardShortcut("c", modifiers: [.command, .option])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.canvasSize)
+                        .disabled(!enabled(.canvasSize))
                     Button("Image Size…") { Task { await applicationDelegate.projects.imageSize() } }
-                        .configuredKeyboardShortcut("i", modifiers: [.command, .option])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .configuredKeyboardShortcut(.imageSize)
+                        .disabled(!enabled(.imageSize))
                     Button("Trim…") { Task { await applicationDelegate.projects.trim() } }
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                        .disabled(!enabled(.trim))
                     Group {
                         Divider()
                         Button("Rotate Canvas 90° Clockwise") { session.rotateCanvas(clockwise: true) }
-                            .disabled(!session.canEditLayers)
+                            .disabled(!enabled(.rotateCanvasClockwise))
                         Button("Rotate Canvas 90° Counterclockwise") { session.rotateCanvas(clockwise: false) }
-                            .disabled(!session.canEditLayers)
+                            .disabled(!enabled(.rotateCanvasCounterclockwise))
                         Button("Flip Canvas Horizontal") { session.flipCanvas(horizontally: true) }
-                            .disabled(!session.canEditLayers)
+                            .disabled(!enabled(.flipCanvasHorizontal))
                         Button("Flip Canvas Vertical") { session.flipCanvas(horizontally: false) }
-                            .disabled(!session.canEditLayers)
+                            .disabled(!enabled(.flipCanvasVertical))
                     }
                 }
                 CommandMenu("Filter") {
@@ -353,7 +367,7 @@ struct CompositorApp: App {
                         Task { await session.repeatLastFilter() }
                     }
                         // ⌃⌘F, as in Photoshop; ⌘F is the command palette.
-                        .configuredKeyboardShortcut("f", modifiers: [.command, .control]).disabled(!session.canRepeatLastFilter)
+                        .configuredKeyboardShortcut("f", modifiers: [.command, .control]).disabled(!enabled(.lastFilter))
                     Divider()
                     // Those that can also be adjustment layers, in that menu's order, then the rest.
                     let layered = AdjustmentKind.filters.compactMap(\.filterKind)
@@ -372,41 +386,41 @@ struct CompositorApp: App {
                         ForEach(AdjustmentKind.filters, id: \.self) { kind in
                             Button(kind.displayName + "…") { session.addAdjustment(kind) }
                         }
-                    }.disabled(!session.canEditLayers || session.document == nil)
+                    }.disabled(!AdjustmentKind.allCases.contains { enabled(.newAdjustmentLayer($0)) })
                     Button("Edit Adjustment…") {
                         session.adjustmentEditingID = session.activeLayerID
-                    }.disabled(!session.canEditLayers || session.activeLayer?.adjustment == nil)
+                    }.disabled(!enabled(.editAdjustment))
                     Divider()
                     Button(session.canTransformSelection ? "Transform Selection".localized : "Transform Layer".localized) { session.transformCommand() }
-                        .configuredKeyboardShortcut("t").disabled(!session.canTransform && !session.canTransformSelection)
+                        .configuredKeyboardShortcut(.transform).disabled(!enabled(.transform))
                     Button(session.selection == nil ? "Duplicate Layer".localized : "Layer via Copy".localized) { session.layerViaCopy() }
-                        .configuredKeyboardShortcut("j").disabled(!session.canCopyPixels && !(session.selection == nil && session.canEditLayers && session.activeLayer != nil))
+                        .configuredKeyboardShortcut(.layerViaCopy).disabled(!enabled(.layerViaCopy))
                     Divider()
                     Button(session.selectedClippingTitle) { session.toggleSelectedClipping() }
-                    .configuredKeyboardShortcut("g", modifiers: [.command, .option])
-                    .disabled(!session.canToggleSelectedClipping)
+                    .configuredKeyboardShortcut(.toggleClipping)
+                    .disabled(!enabled(.toggleClipping))
                     Divider()
                     Button("Group Selected Layers") { session.groupSelectedLayers() }
-                        .configuredKeyboardShortcut("g").disabled(!session.canEditLayers)
+                        .configuredKeyboardShortcut(.groupLayers).disabled(!enabled(.groupLayers))
                     Button("Ungroup Layers") { session.ungroupLayers() }
-                        .configuredKeyboardShortcut("g", modifiers: [.command, .shift]).disabled(!session.canUngroupLayers)
+                        .configuredKeyboardShortcut(.ungroupLayers).disabled(!enabled(.ungroupLayers))
                     Button("Move Out of Folder") { session.moveActiveLayerOutOfGroup() }
-                        .disabled(!session.canEditLayers || session.activeLayer?.parentID == nil)
+                        .disabled(!enabled(.moveOutOfFolder))
                     Button("New Blank Layer") { session.addBlankLayer() }
-                        .configuredKeyboardShortcut("n", modifiers: [.command, .shift]).disabled(!session.canEditLayers)
+                        .configuredKeyboardShortcut(.newBlankLayer).disabled(!enabled(.newBlankLayer))
                     Button("Rename Layer…") { session.renamingLayerID = session.activeLayerID }
-                        .disabled(!session.canEditLayers || session.activeLayer == nil)
+                        .disabled(!enabled(.renameLayer))
                     Button(session.visibilityTitle) {
                         session.toggleSelectedLayersVisibility()
-                    }.disabled(!session.canEditLayers || session.activeLayer == nil)
+                    }.disabled(!enabled(.toggleLayerVisibility))
                     Divider()
                     Button("Move Layer Up") { session.moveActiveLayer(by: 1) }
-                        .configuredKeyboardShortcut("]").disabled(!session.canMoveActiveLayer(by: 1))
+                        .configuredKeyboardShortcut(.moveLayerUp).disabled(!enabled(.moveLayerUp))
                     Button("Move Layer Down") { session.moveActiveLayer(by: -1) }
-                        .configuredKeyboardShortcut("[").disabled(!session.canMoveActiveLayer(by: -1))
+                        .configuredKeyboardShortcut(.moveLayerDown).disabled(!enabled(.moveLayerDown))
                     Group {
                         Button(session.mergeTitle) { session.mergeLayers() }
-                            .configuredKeyboardShortcut("e").disabled(!session.canMergeLayers)
+                            .configuredKeyboardShortcut(.mergeLayers).disabled(!enabled(.mergeLayers))
                         // As in the Layers panel's menu: whichever would change a selected layer, both for a mix.
                         if session.canConvertToSixteenBit || !session.canConvertToEightBit {
                             Button("Convert to 16-Bit") { session.convertLayers(toSixteenBit: true) }
@@ -417,9 +431,9 @@ struct CompositorApp: App {
                         }
                         Divider()
                         Button("Flip Layer Horizontal") { session.flipLayers(horizontally: true) }
-                            .disabled(!session.canTransform)
+                            .disabled(!enabled(.flipLayersHorizontal))
                         Button("Flip Layer Vertical") { session.flipLayers(horizontally: false) }
-                            .disabled(!session.canTransform)
+                            .disabled(!enabled(.flipLayersVertical))
                         Menu("Align") {
                             ForEach(LayerAlignment.allCases, id: \.self) { alignment in
                                 Button(alignment.rawValue.localized) { session.alignLayers(alignment) }
@@ -439,7 +453,7 @@ struct CompositorApp: App {
                             : session.selectedLayerIDs.count > 1 ? "Delete Layers".localized : "Delete Layer".localized)) {
                         session.deleteLayerOrMask()
                     }
-                        .disabled(!session.canEditLayers || session.activeLayer == nil)
+                        .disabled(!enabled(.deleteLayer))
                 }
             }
     }

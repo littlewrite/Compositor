@@ -391,12 +391,32 @@
         }
       }
     },
+    "Adjust" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整"
+          }
+        }
+      }
+    },
     "Adjust every color outside this range instead of the colors in it" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "调整此范围之外的所有颜色，而不是范围内的颜色"
+          }
+        }
+      }
+    },
+    "Adjustment Filters" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整滤镜"
           }
         }
       }
@@ -2467,6 +2487,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在保留色调的同时为结果着色，用于棕褐色或蓝晒效果。"
+          }
+        }
+      }
+    },
+    "Commands" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "命令"
           }
         }
       }
@@ -4601,6 +4631,16 @@
         }
       }
     },
+    "Every command the menus hold" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "菜单里的所有命令"
+          }
+        }
+      }
+    },
     "Exclusion" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5087,6 +5127,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "滤镜 › 高斯模糊…"
+          }
+        }
+      }
+    },
+    "Filters" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滤镜"
           }
         }
       }
@@ -6961,6 +7011,16 @@
         }
       }
     },
+    "Image Adjustments" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图像调整"
+          }
+        }
+      }
+    },
     "Image Size" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8821,6 +8881,16 @@
         }
       }
     },
+    "More" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多"
+          }
+        }
+      }
+    },
     "More formats" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9401,12 +9471,12 @@
         }
       }
     },
-    "Not on iPad yet" : {
+    "Not on iOS yet" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPad 上尚不可用"
+            "value" : "iOS 上尚不可用"
           }
         }
       }
@@ -13847,6 +13917,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每通道色调数：2 为纯黑白"
+          }
+        }
+      }
+    },
+    "Tools" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工具"
           }
         }
       }

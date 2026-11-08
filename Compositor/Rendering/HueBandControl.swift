@@ -22,7 +22,7 @@ nonisolated struct HueBandMapping: Equatable, Sendable {
     }
 }
 
-/// The color range control's sizes, in points, on the Mac and on the iPad.
+/// The color range control's sizes, in points, on the Mac and in the iOS app.
 nonisolated struct HueBandMetrics: Equatable, Sendable {
     /// Each strip of hues, before and after.
     var stripHeight: CGFloat = 10

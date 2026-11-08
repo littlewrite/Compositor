@@ -109,7 +109,7 @@ actor ImageImporter {
         guard let image = context.makeImage() else { throw ImageImportError.unreadable }
         return ImportedImage(image: image, thumbnail: try PixelAdjust.thumbnail(of: image), name: url.deletingPathExtension().lastPathComponent)
         #else
-        // iPadOS has no SVG renderer to hand.
+        // iOS has no SVG renderer to hand.
         throw ImageImportError.unsupported
         #endif
     }

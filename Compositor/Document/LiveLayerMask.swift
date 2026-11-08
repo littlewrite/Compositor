@@ -120,7 +120,7 @@ extension EditorSession {
         if response == .alertThirdButtonReturn { finishDeletingLayers(ids, baked: [:]); return true }
         guard response == .alertFirstButtonReturn, let snapshot = projectSnapshot() else { return true }
         #else
-        // Nothing asks yet on iPadOS: the dependent layers keep looking as they do, which undo can take back.
+        // Nothing asks yet on iOS: the dependent layers keep looking as they do, which undo can take back.
         guard let snapshot = projectSnapshot() else { return true }
         #endif
         isProjectBusy = true

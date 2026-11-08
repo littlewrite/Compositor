@@ -38,18 +38,12 @@ struct CurvesControls: View {
                     let y = min(255, max(0, 255-Double(event.location.y/geometry.size.height)*255))
                     var p = points
                     if dragging == nil {
-                        if let index = p.indices.min(by: { hypot(p[$0].x-x,p[$0].y-y) < hypot(p[$1].x-x,p[$1].y-y) }), hypot(p[index].x-x,p[index].y-y) < 14 {
-                            dragging = index
-                        } else if p.count < 32, x > 1, x < 254, p.allSatisfy({ abs($0.x-x) > 1 }) {
-                            p.append(CurvePoint(x: x, y: y)); p.sort { $0.x < $1.x }
-                            settings.channels[settings.channel.index] = p
-                            dragging = p.firstIndex { $0.x == x }
-                        }
+                        dragging = CurveEditing.press(&p, x: x, y: y)
+                        if p != points { settings.channels[settings.channel.index] = p }
                     }
-                    guard let i = dragging, p.indices.contains(i) else { return }
+                    guard let i = dragging else { return }
                     selected = i
-                    p[i].y = y
-                    if i > 0, i < p.count-1 { p[i].x = min(p[i+1].x-1, max(p[i-1].x+1, x)) }
+                    CurveEditing.drag(&p, index: i, x: x, y: y)
                     settings.channels[settings.channel.index] = p
                 }.onEnded { _ in dragging = nil })
             } }

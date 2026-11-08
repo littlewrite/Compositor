@@ -5,7 +5,7 @@ import UIKit
 #endif
 import CoreGraphics
 
-/// The brush cursor, drawn the same on the Mac and iPad: the brush's circle and Clone Stamp's source crosshair, each a
+/// The brush cursor, drawn the same on the Mac and in the iOS app: the brush's circle and Clone Stamp's source crosshair, each a
 /// black line over a wider white one so they show on any image, and Clone Stamp's preview inside the circle.
 enum BrushCursorDrawing {
     /// How far the crosshair's arms reach from the point it marks, in points.

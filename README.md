@@ -88,11 +88,12 @@ brew install --cask robbietilton-compositor
 ## Requirements
 
 - macOS 15.0 or later on a Mac with Apple silicon
+- iOS 18.0 or later on iPhone and iPad
 - Xcode 16.4 or later (to build from source)
 
 ## Other platforms
 
-Compositor is macOS only. These unofficial ports are made by others, not reviewed or supported by me, so please report issues to them:
+The Mac app runs on macOS only. This repository also builds **CompositorMobile**, the iOS app for iPhone and iPad. The unofficial ports below are made by others, not reviewed or supported by me, so please report issues to them:
 
 - [CompositorWindows](https://github.com/Cengokill/CompositorWindows) by [@Cengokill](https://github.com/Cengokill): Windows
 - [Composa](https://github.com/dvdstelt/Composa) by [@dvdstelt](https://github.com/dvdstelt): Windows and Linux
@@ -102,7 +103,7 @@ More are listed in [#23 (Windows)](https://github.com/robbietilton/Compositor/is
 
 ## Building
 
-Open `Compositor.xcodeproj` and run the **Compositor** scheme.
+Open `Compositor.xcodeproj` and run the **Compositor** scheme, or run **CompositorMobile** on an iOS simulator for the iPhone and iPad app.
 
 ## Releasing
 

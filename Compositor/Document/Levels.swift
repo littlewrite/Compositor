@@ -29,6 +29,29 @@ nonisolated struct LevelRange: Equatable, Sendable, Codable {
         let input = min(1, max(0, (value * 255 - s.black) / (s.white - s.black)))
         return (s.outputBlack + pow(input, 1 / s.gamma) * (s.outputWhite - s.outputBlack)) / 255
     }
+
+    /// Where the gamma handle stands between black and white, 0 to 255.
+    var gammaPosition: Double { black + (white - black) * pow(0.5, gamma) }
+
+    /// The input handle `index` — black, gamma, white — dragged to `x`, 0 to 255. Black and white keep a level apart,
+    /// and the gray one sets gamma by where it stands between them.
+    func movingInput(_ index: Int, to x: Double) -> Self {
+        var range = self
+        if index == 0 { range.black = min(range.white - 1, x.rounded()) }
+        else if index == 2 { range.white = max(range.black + 1, x.rounded()) }
+        else {
+            let fraction = min(0.999, max(0.001, (x - range.black) / (range.white - range.black)))
+            range.gamma = log(fraction) / log(0.5)
+        }
+        return range
+    }
+
+    /// The output handle `index` — black or white — dragged to `x`, 0 to 255.
+    func movingOutput(_ index: Int, to x: Double) -> Self {
+        var range = self
+        if index == 0 { range.outputBlack = x.rounded() } else { range.outputWhite = x.rounded() }
+        return range
+    }
 }
 nonisolated struct LevelsSettings: Equatable, Sendable, Codable {
     var channel: LevelsChannel = .rgb

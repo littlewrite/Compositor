@@ -6,8 +6,8 @@ struct CropControls: View {
     @Bindable var session: EditorSession
     @State private var showsCustomRatio = false
     @State private var customRatio = "4:5"
-    private let ratioGroups = [["Free", "Canvas"], ["1:1"], ["4:3", "16:9", "2.39:1"], ["3:4", "9:16"]]
-    private var ratios: [String] { ratioGroups.flatMap { $0 } }
+    private var ratioGroups: [[String]] { CropRatios.groups }
+    private var ratios: [String] { CropRatios.all }
 
     var body: some View {
         HStack(spacing: 14) {

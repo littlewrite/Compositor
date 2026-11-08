@@ -21,10 +21,6 @@ struct FilterSheet: View {
             switch edit?.kind ?? .gaussianBlur {
             case .curves:
                 CurvesControls(settings: Binding(get: { settings.curves }, set: { new in update { $0.curves = new } }))
-            case .exposure:
-                control("Exposure", \.exposure.exposure, range: ExposureSettings.exposureRange, unit: "", decimals: 2, logarithmic: false)
-                control("Offset", \.exposure.offset, range: ExposureSettings.offsetRange, unit: "", decimals: 4, logarithmic: false)
-                control("Gamma", \.exposure.gamma, range: ExposureSettings.gammaRange, unit: "", decimals: 2, logarithmic: true)
             case .gradientMap:
                 GradientMapControls(settings: Binding(get: { settings.gradientMap }, set: { new in update { $0.gradientMap = new } }),
                                     pick: { session.openGradientMapColorPicker(highlights: $0) })
@@ -61,141 +57,19 @@ struct FilterSheet: View {
                 control("Yellow / Blue", \.colorBalance.highlightYellowBlue, range: ColorBalanceSettings.range, unit: "", decimals: 0, logarithmic: false, track: Self.yellowBlueTrack)
                 Toggle("Preserve Luminosity", isOn: flag(\.colorBalance.preserveLuminosity))
                     .help("Put each pixel's brightness back afterwards, so only the color moves")
-            case .grain:
-                control("Amount", \.grain.amount, range: GrainSettings.amountRange, unit: "", decimals: 0, logarithmic: false)
-                control("Size", \.grain.size, range: GrainSettings.sizeRange, unit: "px", decimals: 1, logarithmic: true)
-                control("Roughness", \.grain.roughness, range: GrainSettings.roughnessRange, unit: "", decimals: 0, logarithmic: false)
-            case .removeBackground:
-                Text("Hide the background behind a layer mask, keeping the foreground subjects. The pixels stay, so the background can be painted back at any time.")
-                    .fixedSize(horizontal: false, vertical: true)
-                Picker("Quality", selection: Binding(get: { settings.backgroundQuality },
-                                                     set: { new in update { $0.backgroundQuality = new } })) {
-                    ForEach(BackgroundQuality.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden()
-                .help("Basic is quick; Advanced refines the mask against the layer's own detail, for hair and fur")
-                if settings.backgroundQuality == .advanced {
-                    control("Refine", \.refineEdges, range: 0...40, unit: "px", decimals: 0, logarithmic: false)
-                        .help("Pull the mask onto the image's own edges, which recovers hair and fur")
-                    control("Contrast", \.matteContrast, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                        .help("Clear the haze that leaves background showing through thin areas")
-                    control("Shift Edge", \.shiftEdge, range: -10...10, unit: "px", decimals: 0, logarithmic: false)
-                        .help("Shrink the mask to drop the rim of background color around the subject, or grow it")
-                }
-            case .contentAwareFill:
-                Text("Fill the selection using surrounding pixels from this layer.")
-                    .fixedSize(horizontal: false, vertical: true)
-            case .gaussianBlur:
-                control("Radius", \.radius, range: 0.1...250, unit: "px", decimals: 1, logarithmic: true)
-                Toggle("Preserve Transparency", isOn: flag(\.preserveTransparency))
-                    .help("Blur only the colors, keeping the layer's outline and transparency as they are")
-            case .progressiveBlur:
-                Text("Click and drag two points on canvas")
-                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    Text("Shape")
-                    Picker("Shape", selection: flag(\.progressiveRadial)) {
-                        Text("Linear").tag(false)
-                        Text("Radial").tag(true)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
-                    .help("Linear blurs along the line; Radial keeps the start sharp and blurs outwards")
-                }
-                control("From", \.progressiveFrom, range: 0...250, unit: "px", decimals: 1, logarithmic: false)
-                    .help("The blur where the line starts")
-                control("To", \.progressiveTo, range: 0...250, unit: "px", decimals: 1, logarithmic: false)
-                    .help("The blur where the line ends, and past it")
-                Toggle("Invert", isOn: flag(\.progressiveInverted))
-                    .help("Swap From and To: blur the start and sharpen toward the end")
-            case .rgbSplit:
-                HStack(spacing: 10) {
-                    Text("Shape")
-                    Picker("Shape", selection: flag(\.rgbSplitRadial)) {
-                        Text("Linear").tag(false)
-                        Text("Radial").tag(true)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
-                    .help("Linear splits along one direction; Radial splits outwards from a center, sharp there")
-                }
-                if settings.rgbSplitRadial {
-                    Text("Click or drag on the canvas to move the center")
-                        .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                control("Distance", \.rgbSplitDistance, range: 0...200, unit: "px", decimals: 0, logarithmic: false)
-                    .help("How far the colors spread apart, red one way and blue the other")
-                control("Blur", \.rgbSplitBlur, range: 0...400, unit: "px", decimals: 0, logarithmic: false)
-                    .help("Smear the split into streaks along its direction")
-                if !settings.rgbSplitRadial {
-                    control("Angle", \.rgbSplitAngle, range: -180...180, unit: "°", decimals: 0, logarithmic: false)
-                        .help("Which way the colors spread")
-                }
             case .lensEffects:
                 lensEffectsControls
             case .rimLight:
                 rimLightControls
             case .volumetricLight:
                 volumetricLightControls
-            case .motionBlur:
-                control("Angle", \.angle, range: -90...90, unit: "°", decimals: 0, logarithmic: false)
-                control("Distance", \.distance, range: 1...2000, unit: "px", decimals: 0, logarithmic: true)
-            case .addNoise:
-                control("Amount", \.amount, range: 0.1...400, unit: "%", decimals: 1, logarithmic: true)
-                HStack(spacing: 10) {
-                    Text("Distribution")
-                    Picker("Distribution", selection: flag(\.gaussian)) {
-                        Text("Uniform").tag(false)
-                        Text("Gaussian").tag(true)
-                    }
-                    .pickerStyle(.segmented).labelsHidden()
-                }
-                Toggle("Monochromatic", isOn: flag(\.monochromatic))
             case .dither:
                 ditherControls
             case .scanlines:
                 scanlinesControls
-            case .vignette:
-                HStack(spacing: 10) {
-                    Text("Color").frame(width: labelWidth, alignment: .leading)
-                    Spacer()
-                    Button { session.openVignetteColorPicker() } label: {
-                        ColorSwatch(color: Color(.sRGB, red: settings.vignetteColor.red,
-                                                 green: settings.vignetteColor.green, blue: settings.vignetteColor.blue))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Choose the vignette color")
-                }
-                control("Amount", \.vignetteAmount, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                    .help("Blend the chosen color into the edges while keeping the center unchanged")
-                control("Midpoint", \.vignetteMidpoint, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Roundness", \.vignetteRoundness, range: -100...100, unit: "", decimals: 0, logarithmic: false)
-                control("Feather", \.vignetteFeather, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Highlights", \.vignetteHighlights, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                    .help("Protect bright areas near the edge")
-            case .sharpen:
-                control("Amount", \.sharpenAmount, range: 0...300, unit: "%", decimals: 0, logarithmic: false)
-                    .help("How strongly edges and fine detail are brought out")
-                control("Radius", \.sharpenRadius, range: 0.1...20, unit: "px", decimals: 1, logarithmic: true)
-                    .help("How fine the detail it sharpens: small for crisp texture, larger for a punchier look")
-            case .reduceNoise:
-                control("Strength", \.reduceNoiseLuminance, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                    .help("How much grain is smoothed from the picture's brightness")
-                control("Preserve Details", \.reduceNoiseDetail, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                    .help("How much fine texture and edges are kept while the grain is smoothed")
-                control("Color Noise", \.reduceNoiseColor, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                    .help("How much colored speckle is smoothed into the colors around it")
-            case .bloomGlow:
-                control("Amount", \.bloomAmount, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Radius", \.bloomRadius, range: 1...150, unit: "px", decimals: 0, logarithmic: true)
-            case .tonalContrast:
-                control("Amount", \.tonalAmount, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Shadows", \.tonalShadows, range: -100...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Midtones", \.tonalMidtones, range: -100...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Highlights", \.tonalHighlights, range: -100...100, unit: "%", decimals: 0, logarithmic: false)
-                control("Radius", \.tonalRadius, range: 1...100, unit: "px", decimals: 0, logarithmic: true)
-            case .lensCorrection:
-                control("Remove Distortion", \.distortion, range: -100...100, unit: "", decimals: 0, logarithmic: false)
-                Text("Positive straightens lines that bow outward (barrel); negative, lines that bow inward (pincushion).")
-                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            default:
+                // The shared description's rows, as the mobile editor draws the same ones.
+                specControls(for: edit?.kind ?? .gaussianBlur)
             }
             // Not for an adjustment layer: its eye in the layers panel shows the picture without it.
             if session.adjustmentOriginal == nil {
@@ -555,6 +429,113 @@ struct FilterSheet: View {
     static let cyanRedTrack = CameraRawSliderTrack.cyanRed
     static let magentaGreenTrack = CameraRawSliderTrack.magentaGreen
     static let yellowBlueTrack = CameraRawSliderTrack.yellowBlue
+
+    /// A filter's settings as `FilterControls` describes them: the rows, in order, that the mobile editor draws from the
+    /// same description.
+    @ViewBuilder private func specControls(for kind: FilterKind) -> some View {
+        let controls = FilterControls.all[kind] ?? []
+        ForEach(Array(controls.enumerated()), id: \.offset) { _, item in
+            specControl(item)
+        }
+    }
+
+    @ViewBuilder private func specControl(_ item: FilterControls.Control) -> some View {
+        switch item {
+        case .slider(let row):
+            if row.shown?(settings) ?? true {
+                control(row.caption, row.key, range: row.range, unit: row.unit ?? "", decimals: row.decimals,
+                        logarithmic: row.logarithmic, track: row.track?(settings))
+                    .help(row.help ?? "")
+            }
+        case .checkbox(let title, let key, let help, _, let shown):
+            if shown?(settings) ?? true {
+                Toggle(title, isOn: flag(key)).help(help ?? "")
+            }
+        case .choice(let caption, let titles, let help, _, let chosen, let choose, let shown):
+            if shown?(settings) ?? true {
+                HStack(spacing: 10) {
+                    if let caption { Text(caption) }
+                    Picker(caption ?? "", selection: Binding(get: { chosen(settings) }, set: { index in
+                        update { choose(&$0, index) }
+                    })) {
+                        ForEach(titles.indices, id: \.self) { Text(titles[$0]).tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
+                .help(help ?? "")
+            }
+        case .popUp(let caption, let groups, let help, _, let chosen, let choose, let shown):
+            if shown?(settings) ?? true {
+                Picker(caption, selection: Binding(get: { chosen(settings) }, set: { name in
+                    update { choose(&$0, name) }
+                })) {
+                    ForEach(groups.indices, id: \.self) { group in
+                        if group > 0 { Divider() }
+                        ForEach(groups[group], id: \.self) { Text($0).tag($0) }
+                    }
+                }
+                .help(help ?? "")
+            }
+        case .field(let caption, let key, let help, _, let shown):
+            if shown?(settings) ?? true {
+                HStack(spacing: 10) {
+                    Text(caption)
+                    TextField(caption, text: Binding(get: { settings[keyPath: key] }, set: { text in
+                        update { $0[keyPath: key] = text }
+                    }))
+                    .textFieldStyle(.roundedBorder).font(.body.monospaced())
+                }
+                .help(help ?? "")
+            }
+        case .heading(let title):
+            Text(title).font(.headline)
+        case .text(let text):
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        case .note(let text, let shown):
+            if shown?(settings) ?? true {
+                Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        case .gradient(let colors):
+            LinearGradient(colors: colors(settings).map(swatchColor), startPoint: .leading, endPoint: .trailing)
+                .frame(height: 20)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(.black.opacity(0.35)) }
+                .accessibilityHidden(true)
+        case .swatches(let swatches, let titlesFirst, let shown):
+            if shown?(settings) ?? true {
+                HStack(spacing: 20) {
+                    ForEach(Array(swatches.enumerated()), id: \.offset) { _, swatch in
+                        swatchControl(swatch, titlesFirst: titlesFirst)
+                    }
+                    Spacer()
+                }
+            }
+        case .color(let caption, let help, _, let value, let open):
+            HStack(spacing: 10) {
+                Text(caption).frame(width: labelWidth, alignment: .leading)
+                Spacer()
+                Button { open(session) } label: { ColorSwatch(color: swatchColor(value(settings))) }
+                    .buttonStyle(.plain)
+            }
+            .help(help ?? "")
+        case .action(let title, let help, _, let run):
+            Button(title) { run(session) }.help(help ?? "")
+        }
+    }
+
+    private func swatchControl(_ swatch: FilterControls.Swatch, titlesFirst: Bool) -> some View {
+        HStack(spacing: 8) {
+            if titlesFirst { Text(swatch.title) }
+            Button { swatch.open(session) } label: { ColorSwatch(color: swatchColor(swatch.value(settings))) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(swatch.title) color")
+            if !titlesFirst { Text(swatch.title) }
+        }
+    }
+
+    private func swatchColor(_ value: AdjustmentColor) -> Color {
+        Color(.sRGB, red: value.red, green: value.green, blue: value.blue)
+    }
 
     /// A slider plus an exact field. Logarithmic sliders give the small values used most most of the travel.
     /// A colored track draws the slider as Camera Raw's, where a double-click on the title or knob resets it.
