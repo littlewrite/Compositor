@@ -17,7 +17,7 @@ extension UTType {
 
 nonisolated struct ProjectManifest: Codable, Sendable {
     /// The format version new saves write.
-    static let current = 22
+    static let current = 25
     /// Every version `load` accepts: each one a release has written (1 through `current`), and 27 from the
     /// GIF branch's own builds. Leaving out 15 and 16 once locked out projects saved by 1.5.4 and 1.5.5.
     /// The package-header and manifest checks both read this, so they can't drift apart when `current` is bumped.
@@ -675,6 +675,14 @@ actor ProjectStore {
                       fill.gradient?.isValid ?? true
                 else { throw ProjectError.invalid }
             }
+            if layer.effects?.gradientOverlay != nil || layer.effects?.satin != nil || layer.effects?.bevel != nil {
+                // Gradient Overlay, Satin and Bevel & Emboss arrived in version 23.
+                guard manifest.version >= 23 else { throw ProjectError.invalid }
+            }
+            if layer.effects?.patternOverlay != nil {
+                // Pattern Overlay arrived in version 25.
+                guard manifest.version >= 25 else { throw ProjectError.invalid }
+            }
             if let adjustment = layer.adjustment {
                 guard manifest.version >= 7, layer.isGroup != true, layer.imageFile == nil, adjustment.isValid else { throw ProjectError.invalid }
                 if adjustment.kind == .gaussianBlur || adjustment.kind == .motionBlur || adjustment.kind == .addNoise {
@@ -697,6 +705,10 @@ actor ProjectStore {
                 // Reduce Noise layers arrived in version 21.
                 if adjustment.kind == .reduceNoise || filterLayer?.reduceNoise != nil {
                     guard manifest.version >= 21 else { throw ProjectError.invalid }
+                }
+                // Color Lookup layers arrived in version 24.
+                if adjustment.kind == .colorLookup || filterLayer?.colorLookup != nil {
+                    guard manifest.version >= 24 else { throw ProjectError.invalid }
                 }
             }
             // Layer masks arrived in version 4, folder masks in version 6.

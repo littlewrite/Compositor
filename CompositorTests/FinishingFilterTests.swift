@@ -109,6 +109,7 @@ struct FinishingFilterTests {
         .lensFlare, .lightTunnel, .solarize, .offset,
         .selectiveColor, .replaceColor,
         .tiltShiftBlur, .irisBlur,
+        .fieldBlur, .spinBlur, .pathBlur,
         .clouds, .differenceClouds,
         .wave, .ripple,
     ])
@@ -168,6 +169,9 @@ struct FinishingFilterTests {
         case .replaceColor: settings.replaceTargetHue = 0; settings.replaceTolerance = 90; settings.replaceHue = 120
         case .tiltShiftBlur: settings.tiltShiftRadius = 8; settings.tiltShiftBand = 10
         case .irisBlur: settings.irisBlurRadius = 8; settings.irisRadius = 6; settings.irisFeather = 100
+        case .fieldBlur: settings.fieldBlurRadius = 8; settings.fieldReach = 60
+        case .spinBlur: settings.spinAmount = 30
+        case .pathBlur: settings.pathDistance = 10; settings.pathCurve = 20
         case .clouds, .differenceClouds: settings.cloudsScale = 24; settings.cloudsDetail = 50
         case .wave, .ripple: settings.waveAmplitude = 12; settings.waveLength = 16
         default: break
@@ -460,6 +464,67 @@ struct FinishingFilterTests {
             || result[center + 1] > 200 && result[center] < 50
         #expect(centerPure, "the center stays sharp: \(result[center]), \(result[center + 1])")
         #expect(result[corner] > 30 && result[corner + 1] > 30, "the corner blurs: \(result[corner]), \(result[corner + 1])")
+    }
+
+    @Test func fieldBlurKeepsItsPointSharpAndBlursAwayFromIt() throws {
+        let context = try BrushRaster.context(width: 41, height: 41, mask: false)
+        for y in stride(from: 0, to: 41, by: 4) {
+            for x in stride(from: 0, to: 41, by: 4) {
+                let red = (x / 4 + y / 4).isMultiple(of: 2)
+                context.setFillColor(CGColor(srgbRed: red ? 1 : 0, green: red ? 0 : 1, blue: 0, alpha: 1))
+                context.fill(CGRect(x: x, y: y, width: 4, height: 4))
+            }
+        }
+        let source = try #require(context.makeImage())
+        var settings = FilterSettings()
+        settings.fieldBlurRadius = 8
+        settings.fieldReach = 100
+        let result = try apply(.fieldBlur, to: source, settings: settings)
+        let center = (20 * 41 + 20) * 4, corner = (2 * 41 + 2) * 4
+        let centerPure = result[center] > 200 && result[center + 1] < 50
+            || result[center + 1] > 200 && result[center] < 50
+        #expect(centerPure, "the point stays sharp: \(result[center]), \(result[center + 1])")
+        #expect(result[corner] > 30 && result[corner + 1] > 30, "the corner blurs: \(result[corner]), \(result[corner + 1])")
+    }
+
+    @Test func spinBlurSweepsTheOuterPictureAroundItsCenter() throws {
+        let context = try BrushRaster.context(width: 41, height: 41, mask: false)
+        context.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 41, height: 41))
+        context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 30, y: 16, width: 8, height: 8))
+        let source = try #require(context.makeImage())
+        let original = try pixels(source)
+        var settings = FilterSettings()
+        settings.spinAmount = 30
+        let result = try apply(.spinBlur, to: source, settings: settings)
+        // A point the red square sweeps through as the picture turns: blue before, red mixed in after.
+        let swept = (24 * 41 + 33) * 4, center = (20 * 41 + 20) * 4
+        #expect(original[swept] < 10)
+        #expect(result[swept] > 30, "the turn carries red into the arc: \(result[swept])")
+        #expect(result[center] < 10, "the center hardly turns: \(result[center])")
+    }
+
+    @Test func pathBlurStretchesAlongItsAngle() throws {
+        let context = try BrushRaster.context(width: 41, height: 41, mask: false)
+        context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 20, height: 41))
+        context.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 20, y: 0, width: 21, height: 41))
+        let source = try #require(context.makeImage())
+        var across = FilterSettings()
+        across.pathDistance = 12
+        across.pathAngle = 0
+        let streaked = try apply(.pathBlur, to: source, settings: across)
+        let seam = (20 * 41 + 20) * 4
+        #expect(streaked[seam] > 20 && streaked[seam + 2] > 20, "the seam blends across: \(streaked[seam]), \(streaked[seam + 2])")
+        // Turned to run along the bands, the path moves no color: rows keep their red or blue.
+        var along = across
+        along.pathAngle = 90
+        let kept = try apply(.pathBlur, to: source, settings: along)
+        let left = (10 * 41 + 8) * 4, right = (30 * 41 + 32) * 4
+        #expect(kept[left] > 200 && kept[left + 2] < 50, "the red band stays red: \(kept[left]), \(kept[left + 2])")
+        #expect(kept[right + 2] > 200 && kept[right] < 50, "the blue band stays blue: \(kept[right]), \(kept[right + 2])")
     }
 
     @Test func cloudsAreDeterministicAndOpaque() throws {

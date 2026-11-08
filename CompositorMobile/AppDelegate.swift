@@ -150,7 +150,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 UICommand(title: kind.displayName + "…", action: #selector(Window.applyFilter(_:)), propertyList: kind.rawValue)
             })
         }
-        let filterElements: [UIMenuElement] = [last] + filters
+        let filterElements: [UIMenuElement] = [last] + filters + [
+            // A filter layer clipped to the layer in hand, as the Mac's Filter menu adds: it changes only that layer.
+            UIMenu(title: "Add Smart Filter".localized, children: AdjustmentKind.filters.map { kind in
+                UICommand(title: kind.displayName, action: #selector(Window.addSmartFilter(_:)), propertyList: kind.rawValue)
+            }),
+        ]
         services.commands.register(filterElements, path: "Filter")
         builder.insertSibling(UIMenu(title: "Filter".localized, identifier: filter, children: filterElements), afterMenu: image)
         let layer = UIMenu.Identifier("com.wonderassembly.compositor.layer")

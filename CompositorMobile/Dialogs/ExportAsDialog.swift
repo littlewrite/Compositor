@@ -9,6 +9,8 @@ final class ExportAsController: SizeDialogController {
     static let largestSide = DocumentLimits.maxSide
 
     let raster: ExportRaster
+    /// The document's layers, which a PSD keeps as layers; without it a PSD is the flattened canvas.
+    let snapshot: ProjectSnapshot?
     private(set) var format: ExportFormat
     private(set) var width: Int
     private(set) var height: Int
@@ -32,9 +34,10 @@ final class ExportAsController: SizeDialogController {
     private let matteWell = UIColorWell()
     private let note = SizeDialogController.note()
 
-    init(raster: ExportRaster, format: ExportFormat = .png, finish: @escaping (Data, ExportFormat) -> Void,
-         cancelled: @escaping () -> Void) {
+    init(raster: ExportRaster, snapshot: ProjectSnapshot? = nil, format: ExportFormat = .png,
+         finish: @escaping (Data, ExportFormat) -> Void, cancelled: @escaping () -> Void) {
         self.raster = raster
+        self.snapshot = snapshot
         self.format = Self.formats.contains(format) ? format : .png
         self.finish = finish
         self.cancelled = cancelled
@@ -99,7 +102,8 @@ final class ExportAsController: SizeDialogController {
         qualitySlider.isHidden = format != .jpeg
         matteWell.superview?.isHidden = !takesBackground
         confirmButton.isEnabled = valid && encoding == nil
-        note.text = valid ? "\(width) × \(height) pixels · " + (format == .png || format == .psd ? "Transparency kept" : "Transparent areas filled")
+        note.text = valid ? "\(width) × \(height) pixels · " + (format == .psd ? "Layers · Transparency kept"
+                          : format == .png ? "Transparency kept" : "Transparent areas filled")
                           : "Use sizes from 1 to \(Self.largestSide.formatted()) pixels a side, and at most "
                             + "\(DocumentLimits.maxSurfaceMegapixels) megapixels in all."
         note.textColor = valid ? .secondaryLabel : .systemOrange
@@ -182,7 +186,11 @@ final class ExportAsController: SizeDialogController {
                 case .pdf:
                     data = try await ImageExporter.shared.pdfData(sized, background: matte.cgColor)
                 case .psd:
-                    data = try await ImageExporter.shared.psdData(sized)
+                    if let snapshot {
+                        data = try await ImageExporter.shared.layeredPSD(snapshot, merged: sized)
+                    } else {
+                        data = try await ImageExporter.shared.psdData(sized)
+                    }
                 default:
                     return
                 }

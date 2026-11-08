@@ -1705,7 +1705,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
                         return
                     }
                     dialogSession = session
-                    let dialog = ExportAsController(raster: raster) { [weak self] data, format in
+                    let dialog = ExportAsController(raster: raster, snapshot: snapshot) { [weak self] data, format in
                         guard let self else { return }
                         do {
                             let extensionName = format.type.preferredFilenameExtension ?? "png"
@@ -1873,6 +1873,11 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     @objc func newAdjustmentLayer(_ sender: UICommand) {
         guard let name = sender.propertyList as? String, let kind = AdjustmentKind(rawValue: name) else { return }
         activeTab?.session.addAdjustment(kind)
+    }
+    /// A smart filter from the Filter menu, by its adjustment kind.
+    @objc func addSmartFilter(_ sender: UICommand) {
+        guard let name = sender.propertyList as? String, let kind = AdjustmentKind(rawValue: name) else { return }
+        activeTab?.session.addSmartFilter(kind)
     }
     @objc func editAdjustment(_ sender: Any?) {
         guard let session = activeTab?.session else { return }

@@ -388,6 +388,14 @@ struct CompositorApp: App {
                     ForEach(layered, id: \.self) { filterMenuItem($0) }
                     Divider()
                     ForEach(others, id: \.self) { filterMenuItem($0) }
+                    Divider()
+                    // A filter layer clipped to the layer in hand: it changes only that layer, and stays editable.
+                    Menu("Add Smart Filter") {
+                        ForEach(AdjustmentKind.filters, id: \.self) { kind in
+                            Button(kind.displayName + "…") { session.addSmartFilter(kind) }
+                        }
+                    }
+                    .disabled(!session.canAddSmartFilter)
                 }
                 CommandMenu("Layer") {
                     Menu("New Adjustment Layer") {

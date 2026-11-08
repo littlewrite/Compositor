@@ -26,6 +26,9 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     case ripple = "Ripple"
     case tiltShiftBlur = "Tilt-Shift Blur"
     case irisBlur = "Iris Blur"
+    case fieldBlur = "Field Blur"
+    case spinBlur = "Spin Blur"
+    case pathBlur = "Path Blur"
     case boxBlur = "Box Blur"
     case zoomBlur = "Zoom Blur"
     case bokehBlur = "Bokeh Blur"
@@ -77,6 +80,7 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     case photoFilter = "Photo Filter"
     case selectiveColor = "Selective Color"
     case replaceColor = "Replace Color"
+    case colorLookup = "Color Lookup"
     case vibrance = "Vibrance"
     case posterize = "Posterize"
     case threshold = "Threshold"
@@ -89,7 +93,7 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     static let imageMenuCommands: [Self] = [.desaturate, .autoTone, .autoContrast, .autoColor, .equalize]
     /// The Image menu's pixel adjustments, in its order. Their adjustment-layer versions are the Layer menu's own.
     static let imageMenuAdjustments: [Self] = [
-        .blackWhite, .colorBalance, .exposure, .gradientMap, .grain, .brightnessContrast, .shadowsHighlights,
+        .blackWhite, .colorBalance, .colorLookup, .exposure, .gradientMap, .grain, .brightnessContrast, .shadowsHighlights,
         .vibrance, .posterize, .threshold, .channelMixer, .photoFilter, .selectiveColor, .replaceColor,
     ]
     /// The filter's name as menus and editors show it, in the app's language; `rawValue` stays the project's.
@@ -112,9 +116,10 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
             || self == .hatchedScreen || self == .glass || self == .glassLozenge || self == .triangleKaleidoscope
             || self == .falseColor || self == .monochrome || self == .discBlur
             || self == .lensFlare || self == .lightTunnel || self == .solarize || self == .offset
-            || self == .tiltShiftBlur || self == .irisBlur
+            || self == .tiltShiftBlur || self == .irisBlur || self == .fieldBlur || self == .spinBlur || self == .pathBlur
             || self == .selectiveColor || self == .replaceColor
             || self == .desaturate || self == .autoTone || self == .autoContrast || self == .autoColor || self == .equalize
+            || self == .colorLookup
     }
     /// Filters whose output channels each depend on all three input channels (Camera Raw's color, and the ones that work
     /// from brightness), which a 16-bit layer runs the slower, channel-by-channel way (`DeepLayer.run`).
@@ -139,6 +144,7 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
             || self == .shadowsHighlights || self == .channelMixer || self == .photoFilter
             || self == .selectiveColor || self == .replaceColor
             || self == .desaturate || self == .autoTone || self == .autoContrast || self == .autoColor || self == .equalize
+            || self == .colorLookup
     }
 }
 
@@ -457,6 +463,8 @@ nonisolated struct FilterSettings: Equatable, Sendable {
     var replaceHue: Double = 120
     var replaceSaturation: Double = 0
     var replaceLightness: Double = 0
+    /// Color Lookup: the table loaded from a .cube or .3dl file; nil until one is chosen.
+    var colorLookup: ColorLookupTable?
     /// Vibrance: how much muted colors are lifted while already-saturated ones stay put, −100…100.
     var vibranceAmount: Double = 0
     /// Posterize: how many levels each channel keeps, 2–255.
@@ -538,6 +546,20 @@ nonisolated struct FilterSettings: Equatable, Sendable {
     var irisBlurRadius: Double = 20
     var irisRadius: Double = 100
     var irisFeather: Double = 50
+    /// Field Blur: the sharp point, as a percentage across and down the layer, and how far out the blur builds to its
+    /// full radius, as a percentage of the point's way to the layer's farthest corner.
+    var fieldBlurRadius: Double = 20
+    var fieldFocusX: Double = 50
+    var fieldFocusY: Double = 50
+    var fieldReach: Double = 50
+    /// Spin Blur: how far the picture turns, and the center it turns about, in percentages.
+    var spinAmount: Double = 15
+    var spinCenterX: Double = 50
+    var spinCenterY: Double = 50
+    /// Path Blur: the length of the path in layer pixels, how far it bows, and the direction it runs in degrees.
+    var pathDistance: Double = 40
+    var pathCurve: Double = 0
+    var pathAngle: Double = 0
     /// Lens Flare: where the light sits, its tint, how bright it is (0–200%), and how large it spreads.
     var lensFlarePosition: LensFlarePosition = .center
     var lensFlareTint: LensFlareTint = .white
@@ -678,6 +700,16 @@ nonisolated struct FilterSettings: Equatable, Sendable {
         result.irisBlurRadius = clamp(irisBlurRadius, 0.1...250, 20)
         result.irisRadius = clamp(irisRadius, 1...1000, 100)
         result.irisFeather = clamp(irisFeather, 0...100, 50)
+        result.fieldBlurRadius = clamp(fieldBlurRadius, 0.1...250, 20)
+        result.fieldFocusX = clamp(fieldFocusX, 0...100, 50)
+        result.fieldFocusY = clamp(fieldFocusY, 0...100, 50)
+        result.fieldReach = clamp(fieldReach, 1...100, 50)
+        result.spinAmount = clamp(spinAmount, -360...360, 15)
+        result.spinCenterX = clamp(spinCenterX, 0...100, 50)
+        result.spinCenterY = clamp(spinCenterY, 0...100, 50)
+        result.pathDistance = clamp(pathDistance, 0...400, 40)
+        result.pathCurve = clamp(pathCurve, -100...100, 0)
+        result.pathAngle = clamp(pathAngle, -180...180, 0)
         result.lensFlareBrightness = clamp(lensFlareBrightness, 0...200, 100)
         result.lensFlareSize = clamp(lensFlareSize, 10...1000, 120)
         result.lightTunnelRadius = clamp(lightTunnelRadius, 1...500, 80)
@@ -798,6 +830,26 @@ nonisolated enum PixelFilter {
         return image.clampedToExtent().cropped(to: region)
     }
 
+    /// `samples` laid over each other at equal shares, cropped to `extent`: each one's alpha taken down to a share of
+    /// the stack, whose alphas then add up to one, and the premultiplied colors added. The result is the samples' mean.
+    private static func averaged(_ samples: [CIImage], extent: CGRect) -> CIImage {
+        guard samples.count > 1 else { return samples.first?.cropped(to: extent) ?? CIImage.empty() }
+        let share = 1 / CGFloat(samples.count)
+        let weighted = samples.map { sample in
+            sample.applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: 1, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0, y: 0, z: 1, w: 0),
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: share),
+            ])
+        }
+        var total = weighted[0]
+        for sample in weighted.dropFirst() {
+            total = sample.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: total])
+        }
+        return total.cropped(to: extent)
+    }
+
     /// RGB Split: the layer dispersed on the GPU (see `MetalDispersion`), in the job's pixels.
     static func rgbSplit(_ job: FilterJob, settings: FilterSettings) throws -> CGImage {
         let width = job.image.width, height = job.image.height
@@ -855,6 +907,15 @@ nonisolated enum PixelFilter {
         case .gradientMap: image = try settings.gradientMap.apply(job.image)
         case .blackWhite: image = try settings.blackWhite.apply(job.image)
         case .colorBalance: image = try settings.colorBalance.apply(job.image)
+        case .colorLookup:
+            guard let table = settings.colorLookup, table.isValid else { image = job.image; break }
+            let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+            let mapped = edges.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+                "inputCubeDimension": table.dimension,
+                "inputCubeData": table.cubeData,
+                "inputColorSpace": space,
+            ])
+            image = try render(mapped.cropped(to: extent), job: job)
         case .cameraRaw: image = try settings.cameraRaw.apply(job.image, clipping: job.cameraRawClipping, scale: job.scale, seed: job.seed,
                                                                 visualizePointColor: job.visualizesPointColor, sharpenMask: job.showsSharpenMask,
                                                                 brightness: job.cameraRawBrightness, usesGPU: job.cameraRawUsesGPU)
@@ -1302,6 +1363,55 @@ nonisolated enum PixelFilter {
                 kCIInputMaskImageKey: mask,
             ])
             image = try render(mixed.cropped(to: extent), job: job)
+        case .fieldBlur:
+            // A sharp point that the blur grows away from, at its strongest a reach's distance out: a mask of 0 to 1
+            // is what CIMaskedVariableBlur reads as no blur to its full radius.
+            let center = CGPoint(x: extent.minX + settings.fieldFocusX / 100 * extent.width,
+                                 y: extent.maxY - settings.fieldFocusY / 100 * extent.height)
+            let farthest = hypot(max(center.x - extent.minX, extent.maxX - center.x),
+                                 max(center.y - extent.minY, extent.maxY - center.y))
+            let reach = max(1, farthest * settings.fieldReach / 100)
+            guard let mask = CIFilter(name: "CIRadialGradient", parameters: [
+                kCIInputCenterKey: CIVector(x: center.x, y: center.y),
+                "inputRadius0": 0,
+                "inputRadius1": reach,
+                "inputColor0": CIColor(red: 0, green: 0, blue: 0),
+                "inputColor1": CIColor(red: 1, green: 1, blue: 1),
+            ])?.outputImage?.cropped(to: extent) else { throw ExportError.render }
+            let blurred = extending(edges, past: job.canvasSides, of: extent).applyingFilter("CIMaskedVariableBlur", parameters: [
+                "inputMask": mask,
+                kCIInputRadiusKey: settings.fieldBlurRadius * job.scale,
+            ])
+            image = try render(blurred.cropped(to: extent), job: job)
+        case .spinBlur:
+            // Copies turned by even steps about the center, averaged: a shutter kept open while the picture spun.
+            let center = CGPoint(x: extent.minX + settings.spinCenterX / 100 * extent.width,
+                                 y: extent.maxY - settings.spinCenterY / 100 * extent.height)
+            let source = extending(edges, past: job.canvasSides, of: extent)
+            let sweep = settings.spinAmount * .pi / 180
+            let samples = max(3, min(48, Int(abs(settings.spinAmount) / 3) + 3))
+            let turned = (0..<samples).map { index -> CIImage in
+                let step = sweep * (CGFloat(index) / CGFloat(samples - 1) - 0.5)
+                let rotate = CGAffineTransform(translationX: center.x, y: center.y).rotated(by: step)
+                    .translatedBy(x: -center.x, y: -center.y)
+                return source.transformed(by: rotate)
+            }
+            image = try render(averaged(turned, extent: extent), job: job)
+        case .pathBlur:
+            // The picture dragged along a quadratic path: a straight run from end to end, bowed by the curve.
+            let distance = settings.pathDistance * job.scale
+            let bow = settings.pathCurve / 100 * distance / 2
+            let angle = settings.pathAngle * .pi / 180
+            let along = CGPoint(x: cos(angle), y: sin(angle)), across = CGPoint(x: -sin(angle), y: cos(angle))
+            let source = extending(edges, past: job.canvasSides, of: extent)
+            let samples = max(3, min(48, Int(abs(distance) / 2) + 3))
+            let stepped = (0..<samples).map { index -> CIImage in
+                let t = CGFloat(index) / CGFloat(samples - 1)
+                let run = (t - 0.5) * distance, bend = bow * 4 * t * (1 - t)
+                let offset = CGPoint(x: along.x * run + across.x * bend, y: along.y * run + across.y * bend)
+                return source.transformed(by: CGAffineTransform(translationX: offset.x, y: offset.y))
+            }
+            image = try render(averaged(stepped, extent: extent), job: job)
         case .boxBlur:
             let source = extending(edges, past: job.canvasSides, of: extent)
             let blurred = source.applyingFilter("CIBoxBlur", parameters: [kCIInputRadiusKey: settings.boxBlurRadius * job.scale])
@@ -1862,6 +1972,8 @@ final class FilterEdit {
         case .rgbSplit: return CGFloat((settings.rgbSplitDistance + settings.rgbSplitBlur) * (settings.rgbSplitRadial ? 2 : 1) + 2)
         case .progressiveBlur: return CGFloat(max(settings.progressiveFrom, settings.progressiveTo) * 3 + 2)
         case .bloomGlow: return CGFloat(settings.bloomRadius * 3 + 2)
+        // Its samples move along the path, so it needs room to move into.
+        case .pathBlur: return CGFloat(settings.pathDistance + abs(settings.pathCurve) / 100 * settings.pathDistance / 2 + 2)
         default: return 0
         }
     }

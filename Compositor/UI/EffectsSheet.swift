@@ -30,13 +30,28 @@ struct EffectsSheet: View {
         HStack {
             Text(kind.displayName).font(.headline)
             Spacer()
-            if session.editingEffects.contains(kind) { swatch(kind) }
+            if session.editingEffects.contains(kind) {
+                if kind == .gradientOverlay { gradientSwatches } else { swatch(kind) }
+            }
         }
     }
 
     /// The effect's rows, from the table both panels read.
     @ViewBuilder private var controls: some View {
         let effects = session.editingEffects
+        if let choice = EffectControls.choices[kind] {
+            HStack(spacing: 10) {
+                Text(choice.caption).frame(width: 64, alignment: .leading)
+                Picker(choice.caption, selection: Binding(get: { choice.chosen(effects) },
+                                                          set: { index in session.changeEffects { choice.choose(&$0, index) } })) {
+                    ForEach(Array(choice.titles.enumerated()), id: \.offset) { index, title in
+                        Text(title).tag(index)
+                    }
+                }
+                .labelsHidden().fixedSize()
+                Spacer()
+            }
+        }
         ForEach(Array((EffectControls.all[kind] ?? []).enumerated()), id: \.offset) { _, row in
             if let value = row.get(effects) {
                 slider(row.caption, value: Binding(get: { CGFloat(value) * CGFloat(row.scale) },
@@ -62,15 +77,24 @@ struct EffectsSheet: View {
         }
     }
 
-    /// The effect's color, opened in the app's own picker.
-    private func swatch(_ kind: LayerEffectKind) -> some View {
-        let color = session.editingEffects.color(kind)
-        return Button { session.openEffectColorPicker(kind) } label: {
+    /// Gradient Overlay's two colors, side by side: its start, then its end.
+    private var gradientSwatches: some View {
+        HStack(spacing: 6) {
+            swatch(kind, end: 0, label: "Gradient start color")
+            swatch(kind, end: 1, label: "Gradient end color")
+        }
+    }
+
+    /// The effect's color, opened in the app's own picker; `end` 1 for Gradient Overlay's second color.
+    private func swatch(_ kind: LayerEffectKind, end: Int = 0, label: String? = nil) -> some View {
+        let color = session.editingEffects.color(kind, end: end) ?? session.editingEffects.color(kind)
+        let name = label ?? kind.rawValue + " color"
+        return Button { session.openEffectColorPicker(kind, end: end) } label: {
             ColorSwatch(color: Color(red: Double(color?.red ?? 0), green: Double(color?.green ?? 0), blue: Double(color?.blue ?? 0)))
         }
         .buttonStyle(.plain)
-        .help(kind.rawValue + " color")
-        .accessibilityLabel(kind.rawValue + " color")
+        .help(name)
+        .accessibilityLabel(name)
     }
 
     private func slider(_ title: String, value: Binding<CGFloat>, range: ClosedRange<CGFloat>,

@@ -2,7 +2,7 @@ import UIKit
 
 /// The editor for a filter, or an adjustment layer of the same kind, as the Mac's filter panel: a row for each of the
 /// filter's settings, then Preview, and Cancel and OK. Like the Mac's, it has no Reset.
-final class FilterEditorController: AdjustmentEditorController {
+final class FilterEditorController: AdjustmentEditorController, UIDocumentPickerDelegate {
     typealias Row = FilterControls.Row
     typealias Swatch = FilterControls.Swatch
     typealias Control = FilterControls.Control
@@ -178,6 +178,15 @@ final class FilterEditorController: AdjustmentEditorController {
                 }
                 button.setHelp(help, hint: hint)
                 content.addArrangedSubview(OptionControls.row([button, UIView()]))
+            case .lookup(let caption, let help, let hint, let name):
+                let title = OptionControls.caption(caption, color: .secondaryLabel)
+                let value = OptionControls.caption(name(edit?.settings ?? FilterSettings()) ?? "None".localized,
+                                                   color: .secondaryLabel)
+                value.lineBreakMode = .byTruncatingMiddle
+                let button = OptionControls.button("Choose…") { [weak self] in self?.presentLookupPicker() }
+                button.setHelp(help, hint: hint)
+                refreshers.append { value.text = name($0) ?? "None".localized }
+                add(OptionControls.row([title, value, UIView(), button], spacing: 10), shown: nil)
             case .note(let text, let shown):
                 let note = OptionControls.caption(text, color: .secondaryLabel)
                 note.numberOfLines = 0
@@ -199,5 +208,27 @@ final class FilterEditorController: AdjustmentEditorController {
         for refresh in refreshers { refresh(settings) }
         error.text = edit?.previewError
         error.isHidden = edit?.previewError == nil
+    }
+
+    // MARK: Color Lookup
+
+    private func presentLookupPicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: ColorLookupReader.contentTypes, asCopy: true)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            session.setColorLookup(try ColorLookupReader.read(url))
+        } catch {
+            let alert = UIAlertController(title: "Can’t Load Lookup Table".localized,
+                                          message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK".localized, style: .default))
+            present(alert, animated: true)
+        }
     }
 }

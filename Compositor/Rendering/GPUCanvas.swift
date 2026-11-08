@@ -859,6 +859,13 @@ nonisolated enum GPUAdjustment {
         case .curves, .blackWhite, .colorBalance, .exposure, .gradientMap, .invert:
             guard let cube = cube(for: adjustment) else { return nil }
             return image.applyingFilter("CIColorCube", parameters: ["inputCubeDimension": dimension, "inputCubeData": cube])
+        case .colorLookup:
+            guard let table = adjustment.filterLayer.colorLookup, table.isValid else { return image }
+            return image.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+                "inputCubeDimension": table.dimension,
+                "inputCubeData": table.cubeData,
+                "inputColorSpace": CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+            ])
         case .gaussianBlur:
             // Not clamped, as on the Core Graphics canvas: the blur spreads past the pixels' edges.
             return image.applyingGaussianBlur(sigma: adjustment.gaussianRadius * scale)

@@ -60,6 +60,9 @@ nonisolated enum FilterControls {
         case text(String)
         /// A button that does something to the edit, as Camera Raw's Auto White Balance.
         case action(String, help: String? = nil, hint: String? = nil, run: @MainActor (EditorSession) -> Void)
+        /// A file-backed table, as Color Lookup's LUT: the chosen file's name (nil before one is chosen) above a button
+        /// that opens the platform's file picker and hands the chosen table to `EditorSession.setColorLookup`.
+        case lookup(caption: String, help: String?, hint: String?, name: (FilterSettings) -> String?)
         /// A note on a setting, quieter.
         case note(String, shown: ((FilterSettings) -> Bool)? = nil)
     }
@@ -460,6 +463,42 @@ nonisolated enum FilterControls {
                         help: "How softly the sharp circle meets the blur",
                         hint: "How softly the sharp circle meets the blur.")),
         ],
+        .fieldBlur: [
+            .slider(Row(caption: "Blur", key: \.fieldBlurRadius, range: 0.1...250, unit: "px", decimals: 1, logarithmic: true,
+                        help: "How strongly the picture blurs away from the point",
+                        hint: "How strongly the picture blurs away from the point.")),
+            .slider(Row(caption: "Reach", key: \.fieldReach, range: 1...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "How far out the blur reaches its full strength",
+                        hint: "How far out the blur reaches its full strength.")),
+            .slider(Row(caption: "Focus X", key: \.fieldFocusX, range: 0...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "Where the sharp point sits across the picture",
+                        hint: "Where the sharp point sits across the picture.")),
+            .slider(Row(caption: "Focus Y", key: \.fieldFocusY, range: 0...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "Where the sharp point sits down the picture",
+                        hint: "Where the sharp point sits down the picture.")),
+        ],
+        .spinBlur: [
+            .slider(Row(caption: "Amount", key: \.spinAmount, range: -360...360, unit: "°", decimals: 0, logarithmic: false,
+                        help: "How far the picture turns while the shutter is open",
+                        hint: "How far the picture turns while the shutter is open.")),
+            .slider(Row(caption: "Center X", key: \.spinCenterX, range: 0...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "Where the turning center sits across the picture",
+                        hint: "Where the turning center sits across the picture.")),
+            .slider(Row(caption: "Center Y", key: \.spinCenterY, range: 0...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "Where the turning center sits down the picture",
+                        hint: "Where the turning center sits down the picture.")),
+        ],
+        .pathBlur: [
+            .slider(Row(caption: "Distance", key: \.pathDistance, range: 0...400, unit: "px", decimals: 0, logarithmic: false,
+                        help: "How long the path the picture smears along is",
+                        hint: "How long the path the picture smears along is.")),
+            .slider(Row(caption: "Curve", key: \.pathCurve, range: -100...100, unit: "%", decimals: 0, logarithmic: false,
+                        help: "How far the path bows to one side",
+                        hint: "How far the path bows to one side.")),
+            .slider(Row(caption: "Angle", key: \.pathAngle, range: -180...180, unit: "°", decimals: 0, logarithmic: false,
+                        help: "Which way the path runs",
+                        hint: "Which way the path runs.")),
+        ],
         .boxBlur: [
             .slider(Row(caption: "Radius", key: \.boxBlurRadius, range: 1...500, unit: "px", decimals: 0, logarithmic: true,
                         help: "How far each pixel averages its neighbors",
@@ -581,6 +620,11 @@ nonisolated enum FilterControls {
             .slider(Row(caption: "Lightness", key: \.replaceLightness, range: -100...100, unit: "%", decimals: 0, logarithmic: false,
                         help: "Lighten or darken the replaced pixels",
                         hint: "Lightens or darkens the replaced pixels.")),
+        ],
+        .colorLookup: [
+            .lookup(caption: "LUT", help: "Choose a .cube or .3dl color lookup table",
+                    hint: "Opens the files to choose a color lookup table.", name: { $0.colorLookup?.name }),
+            .note("The table’s colors replace the picture’s. Choose a .cube or .3dl file."),
         ],
         .brightnessContrast: [
             .slider(Row(caption: "Brightness", key: \.brightnessContrast.brightness, range: BrightnessContrastSettings.range,

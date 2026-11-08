@@ -146,7 +146,7 @@ import UIKit
             }
         }
         let image = try #require(bar.menu(titled: "Image"))
-        #expect(elements(image).map(\.title) == ["Curves…", "Levels…", "Hue/Saturation…", "Black & White…", "Color Balance…", "Exposure…",
+        #expect(elements(image).map(\.title) == ["Curves…", "Levels…", "Hue/Saturation…", "Black & White…", "Color Balance…", "Color Lookup…", "Exposure…",
                                                  "Gradient Map…", "Grain…", "Brightness/Contrast…", "Shadows/Highlights…", "Vibrance…",
                                                  "Posterize…", "Threshold…", "Channel Mixer…", "Photo Filter…", "Selective Color…",
                                                  "Replace Color…", "Desaturate", "Auto Tone", "Auto Contrast", "Auto Color", "Equalize",
@@ -160,17 +160,19 @@ import UIKit
                 == [["Last Filter"], ["Gaussian Blur…", "Motion Blur…", "Progressive Blur…", "Sharpen…", "Reduce Noise…", "Add Noise…",
                                       "Vignette…", "Bloom / Glow…", "RGB Split…", "Lens Effects…", "Tonal Contrast…"],
                     ["Dither…", "Scanlines…", "Volumetric Light…", "Rim Light…", "Lens Correction…",
-                     "Wave…", "Ripple…", "Tilt-Shift Blur…", "Iris Blur…",
+                     "Wave…", "Ripple…", "Tilt-Shift Blur…", "Iris Blur…", "Field Blur…", "Spin Blur…", "Path Blur…",
                      "Box Blur…", "Zoom Blur…", "Bokeh Blur…", "Median…", "Photo Effect…", "Mosaic…", "Crystallize…",
                      "Color Halftone…", "Pointillize…", "Hexagonal Pixelate…", "Twirl…", "Pinch…", "Spherize…", "Vortex…",
                      "Hole…", "Circle Splash…", "Torus Lens…", "Gloom…", "Kaleidoscope…", "Find Edges…", "Comic…",
                      "Line Screen…", "Circular Screen…", "Hatched Screen…", "Glass…", "Glass Lozenge…",
                      "Triangle Kaleidoscope…", "False Color…", "Monochrome…", "Disc Blur…", "Lens Flare…", "Light Tunnel…",
-                     "Solarize…", "Clouds…", "Difference Clouds…", "Offset…", "Camera Raw Filter…", "Remove Background…"]])
+                     "Solarize…", "Clouds…", "Difference Clouds…", "Offset…", "Camera Raw Filter…", "Remove Background…"],
+                    ["Gaussian Blur", "Motion Blur", "Progressive Blur", "Sharpen", "Reduce Noise", "Add Noise",
+                     "Vignette", "Bloom / Glow", "RGB Split", "Lens Effects", "Tonal Contrast"]])
         let fill = try #require(bar.menu(titled: "Edit")?.commands.last)
         // Those with an editor open; the rest are dimmed.
         for command in filter.commands.filter({ ($0.propertyList as? String).flatMap(FilterKind.init) != nil })
-            + image.commands.filter({ ["Black & White…", "Color Balance…", "Exposure…", "Gradient Map…", "Grain…",
+            + image.commands.filter({ ["Black & White…", "Color Balance…", "Color Lookup…", "Exposure…", "Gradient Map…", "Grain…",
                                        "Brightness/Contrast…", "Shadows/Highlights…", "Vibrance…", "Posterize…", "Threshold…",
                                        "Channel Mixer…", "Photo Filter…", "Selective Color…", "Replace Color…"].contains($0.title) })
             + [fill] {

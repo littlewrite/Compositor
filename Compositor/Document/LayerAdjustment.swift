@@ -7,7 +7,7 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
     case exposure = "Exposure", gradientMap = "Gradient Map", grain = "Grain", addNoise = "Add Noise"
     case gaussianBlur = "Gaussian Blur", motionBlur = "Motion Blur"
     case invert = "Invert"
-    case blackWhite = "Black & White", colorBalance = "Color Balance"
+    case blackWhite = "Black & White", colorBalance = "Color Balance", colorLookup = "Color Lookup"
     case progressiveBlur = "Progressive Blur", bloomGlow = "Bloom / Glow", rgbSplit = "RGB Split"
     case vignette = "Vignette", lensEffects = "Lens Effects", tonalContrast = "Tonal Contrast"
     case sharpen = "Sharpen", reduceNoise = "Reduce Noise"
@@ -15,7 +15,7 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
     var displayName: String { rawValue.localized }
     /// The menus' two groups, each in the order of the menu it comes from: the Image menu's color adjustments, then
     /// the Filter menu's filters.
-    static let imageAdjustments: [Self] = [.curves, .levels, .hsv, .blackWhite, .colorBalance, .exposure, .gradientMap, .grain, .invert]
+    static let imageAdjustments: [Self] = [.curves, .levels, .hsv, .blackWhite, .colorBalance, .colorLookup, .exposure, .gradientMap, .grain, .invert]
     static let filters: [Self] = [.gaussianBlur, .motionBlur, .progressiveBlur, .sharpen, .reduceNoise, .addNoise, .vignette, .bloomGlow, .rgbSplit,
                                   .lensEffects, .tonalContrast]
     var symbol: String {
@@ -32,6 +32,7 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
         case .invert: return "circle.righthalf.filled"
         case .blackWhite: return "circle.filled.pattern.diagonalline.rectangle"
         case .colorBalance: return "scale.3d"
+        case .colorLookup: return "cube.transparent"
         case .progressiveBlur: return "aqi.medium"
         case .bloomGlow: return "sun.max"
         case .rgbSplit: return "rainbow"
@@ -50,6 +51,7 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
         case .curves: return .curves
         case .blackWhite: return .blackWhite
         case .colorBalance: return .colorBalance
+        case .colorLookup: return .colorLookup
         case .exposure: return .exposure
         case .gradientMap: return .gradientMap
         case .grain: return .grain
@@ -189,6 +191,8 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
         switch kind {
         case .hsv: (HueSaturationFilter.cube(resolvedHSV), HueSaturationFilter.dimension)
         case .blackWhite, .colorBalance, .gradientMap: GPUAdjustment.cube(for: self).map { ($0, GPUAdjustment.dimension) }
+        case .colorLookup:
+            filterLayer.colorLookup.flatMap { $0.isValid ? ($0.cubeData, $0.dimension) : nil }
         default: nil
         }
     }
@@ -224,6 +228,16 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
         case .curves: return try curves.apply(image)
         case .blackWhite: return try blackWhite.apply(image)
         case .colorBalance: return try colorBalance.apply(image)
+        case .colorLookup:
+            guard let table = filterLayer.colorLookup, table.isValid else { return image }
+            let source = CIImage(cgImage: image)
+            let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+            let mapped = source.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+                "inputCubeDimension": table.dimension,
+                "inputCubeData": table.cubeData,
+                "inputColorSpace": space,
+            ])
+            return try PixelAdjust.render(mapped.cropped(to: source.extent), width: image.width, height: image.height, isMask: false)
         case .exposure: return try exposure.apply(image)
         case .gradientMap: return try gradientMap.apply(image)
         case .grain:
@@ -270,6 +284,29 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
 
 extension EditorSession {
     func addAdjustment(_ kind: AdjustmentKind) {
+        addAdjustment(kind, clippedTo: nil)
+    }
+
+    /// Adds `kind` as a smart filter over the active layer.
+    func addSmartFilter(_ kind: AdjustmentKind) {
+        guard let id = activeLayerID else { return }
+        addSmartFilter(kind, over: id)
+    }
+
+    /// Adds `kind` as an adjustment layer clipped to `source`, so it changes only what that layer shows: a smart
+    /// filter, which stays editable and can be hidden or removed without touching the layer's pixels.
+    func addSmartFilter(_ kind: AdjustmentKind, over source: UUID) {
+        guard let layer = document?.layers.first(where: { $0.id == source }), !layer.isGroup,
+              layer.adjustment == nil, layer.asset != nil, kind.filterKind != nil else { return }
+        addAdjustment(kind, clippedTo: source)
+    }
+
+    /// Whether the active layer can take a smart filter: a layer with pixels of its own.
+    var canAddSmartFilter: Bool {
+        canEditLayers && activeLayer.map { !$0.isGroup && $0.adjustment == nil && $0.asset != nil } == true
+    }
+
+    private func addAdjustment(_ kind: AdjustmentKind, clippedTo source: UUID?) {
         guard canEditLayers, let document, document.layers.count < 10_000 else { return }
         var layer = ImageLayer(name: kind.rawValue, blankSize: document.size)
         var adjustment = LayerAdjustment(kind: kind)
@@ -291,9 +328,10 @@ extension EditorSession {
             adjustment.filterLayer.rgbSplitReach = max(1, hypot(canvas.width, canvas.height) / 2)
         }
         layer.adjustment = adjustment
+        layer.maskSourceID = source
         layer.parentID = activeLayer?.isGroup == true ? activeLayerID : activeLayer?.parentID
         let index = document.layers.firstIndex { $0.id == activeLayerID }.map { $0 + 1 } ?? document.layers.count
-        beginEdit(String(format: "New %@ Adjustment".localized, kind.displayName))
+        beginEdit(String(format: (source == nil ? "New %@ Adjustment" : "New %@ Smart Filter").localized, kind.displayName))
         self.document?.layers.insert(layer, at: index)
         if let parent = layer.parentID { collapsedGroupIDs.remove(parent) }
         activeLayerID = layer.id
@@ -326,6 +364,8 @@ nonisolated struct FilterLayerSettings: Codable, Equatable, Sendable {
     var rgbSplitRadial = false
     var rgbSplitCenter: CGPoint?
     var rgbSplitReach: Double = 1000
+    /// Color Lookup's table, from a .cube or .3dl file; absent from other layers.
+    var colorLookup: ColorLookupTable?
     var vignette: VignetteLayerSettings?
     var tonal: TonalLayerSettings?
     var lens: LensEffectSettings?
@@ -345,6 +385,7 @@ nonisolated struct FilterLayerSettings: Codable, Equatable, Sendable {
         bloomAmount = settings.bloomAmount; bloomRadius = settings.bloomRadius
         rgbSplitDistance = settings.rgbSplitDistance; rgbSplitBlur = settings.rgbSplitBlur; rgbSplitAngle = settings.rgbSplitAngle
         rgbSplitRadial = settings.rgbSplitRadial; rgbSplitCenter = settings.rgbSplitCenter; rgbSplitReach = settings.rgbSplitReach
+        colorLookup = settings.colorLookup
     }
 
     /// `settings` with these in place of its own.
@@ -356,6 +397,7 @@ nonisolated struct FilterLayerSettings: Codable, Equatable, Sendable {
         settings.bloomAmount = bloomAmount; settings.bloomRadius = bloomRadius
         settings.rgbSplitDistance = rgbSplitDistance; settings.rgbSplitBlur = rgbSplitBlur; settings.rgbSplitAngle = rgbSplitAngle
         settings.rgbSplitRadial = rgbSplitRadial; settings.rgbSplitCenter = rgbSplitCenter; settings.rgbSplitReach = rgbSplitReach
+        settings.colorLookup = colorLookup
         if let vignette { settings = vignette.applied(to: settings) }
         if let tonal { settings = tonal.applied(to: settings) }
         if let lens { settings.lens = lens }
@@ -370,6 +412,7 @@ nonisolated struct FilterLayerSettings: Codable, Equatable, Sendable {
         var shared = self
         shared.vignette = nil; shared.tonal = nil; shared.lens = nil; shared.sharpen = nil; shared.reduceNoise = nil
         return shared == Self(shared.applied(to: FilterSettings())) && points.allSatisfy { $0.x.isFinite && $0.y.isFinite }
+            && colorLookup?.isValid ?? true
             && vignette.map { $0 == VignetteLayerSettings($0.applied(to: FilterSettings())) } ?? true
             && tonal.map { $0 == TonalLayerSettings($0.applied(to: FilterSettings())) } ?? true
             && lens.map { $0 == $0.normalized } ?? true

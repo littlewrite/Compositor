@@ -240,8 +240,9 @@ struct ExportAsSheet: View {
             HStack(spacing: 12) {
                 Text(format == .channelPack ? "Each channel from a layer, read as grayscale · PNG"
                      : format == .gif ? "Up to 256 colors · sRGB" : format == .exr ? "Brighter than white kept · Transparency kept"
+                     : format == .psd ? "Layers · Transparency kept · sRGB"
                      : takesCMYK && cmyk ? "CMYK – \(profile?.name ?? "No profile")"
-                     : format == .png || format == .tiff || format == .psd ? "Transparency kept · sRGB" : "sRGB")
+                     : format == .png || format == .tiff ? "Transparency kept · sRGB" : "sRGB")
                     .foregroundStyle(.secondary)
                 Spacer()
                 if isReady, let result {
@@ -326,7 +327,12 @@ struct ExportAsSheet: View {
                         preview = try await ImageExporter.shared.flattened(sized, over: background)
                     }
                 case .psd:
-                    (data, preview) = (try await ImageExporter.shared.psdData(sized), sized.image)
+                    if let snapshot {
+                        data = try await ImageExporter.shared.layeredPSD(snapshot, merged: sized)
+                    } else {
+                        data = try await ImageExporter.shared.psdData(sized)
+                    }
+                    preview = sized.image
                 case .gif: return
                 }
                 try Task.checkCancellation()

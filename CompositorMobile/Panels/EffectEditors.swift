@@ -12,7 +12,11 @@ final class EffectEditorController: AdjustmentEditorController {
     let selection: LayerEffectSelection
     private var fields: [(row: Row, field: SliderField)] = []
     private let swatch = SwatchButton(size: CGSize(width: 36, height: 18), cornerRadius: 3, inner: 1)
+    /// Gradient Overlay's second color.
+    private let endSwatch = SwatchButton(size: CGSize(width: 36, height: 18), cornerRadius: 3, inner: 1)
     private let position = OptionControls.segments(["Outside", "Inside"]) { _ in }
+    /// Pattern Overlay's pattern, when its editor offers a choice.
+    private var patternChoice: (EffectControls.Choice, PopUpButton)?
 
     init(session: EditorSession, selection: LayerEffectSelection) {
         self.selection = selection
@@ -29,7 +33,13 @@ final class EffectEditorController: AdjustmentEditorController {
     override func previewRow(preview: UIView, reset: UIView) -> [UIView] { [] }
     override var notesSelection: Bool { false }
     override var foot: Foot { .effect }
-    override func headingAccessory() -> UIView? { kind == .stroke ? position : swatch }
+    override func headingAccessory() -> UIView? {
+        switch kind {
+        case .stroke: return position
+        case .gradientOverlay: return OptionControls.row([swatch, endSwatch], spacing: 6)
+        default: return swatch
+        }
+    }
 
     override func viewDidLoad() {
         swatch.accessibilityLabel = String(format: "%@ color".localized, kind.displayName)
@@ -38,6 +48,13 @@ final class EffectEditorController: AdjustmentEditorController {
             guard let self else { return }
             self.pickerSource = self.swatch
             self.session.openEffectColorPicker(self.kind)
+        }, for: .primaryActionTriggered)
+        endSwatch.accessibilityLabel = "Gradient end color".localized
+        endSwatch.setHelp("Gradient end color".localized, hint: "Opens the color picker.".localized)
+        endSwatch.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.pickerSource = self.endSwatch
+            self.session.openEffectColorPicker(self.kind, end: 1)
         }, for: .primaryActionTriggered)
         position.addAction(UIAction { [weak self] _ in
             guard let self else { return }
@@ -52,6 +69,17 @@ final class EffectEditorController: AdjustmentEditorController {
             captions.append(label)
             // Spaced as a row's slider is from its caption, so the swatch starts where the sliders do.
             content.addArrangedSubview(OptionControls.row([label, swatch, UIView()], spacing: 8))
+        }
+        if let choice = EffectControls.choices[kind] {
+            let popUp = PopUpButton()
+            popUp.accessibilityLabel = choice.caption
+            popUp.onChoose = { [weak self] name in
+                guard let self, let index = choice.titles.firstIndex(of: name) else { return }
+                self.session.changeEffects { choice.choose(&$0, index) }
+            }
+            patternChoice = (choice, popUp)
+            content.addArrangedSubview(OptionControls.row([OptionControls.caption(choice.caption, color: .secondaryLabel),
+                                                           popUp, UIView()], spacing: 10))
         }
         for row in Self.rows[kind] ?? [] {
             let field = SliderField(caption: row.caption, unit: row.unit, sliderRange: row.slider, fieldRange: row.field,
@@ -79,6 +107,10 @@ final class EffectEditorController: AdjustmentEditorController {
             if let value = row.get(effects) { field.show(value) }
         }
         if let color = effects.color(kind) { swatch.color = color }
+        if let color = effects.color(kind, end: 1) { endSwatch.color = color }
+        if let (choice, popUp) = patternChoice {
+            popUp.show([choice.titles], chosen: choice.titles[choice.chosen(effects)])
+        }
         position.selectedSegmentIndex = effects.stroke?.inside == true ? 1 : 0
     }
 }

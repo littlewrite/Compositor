@@ -32,6 +32,25 @@ nonisolated enum EffectControls {
             set: { $0[keyPath: effect]?[keyPath: value] = CGFloat($1) })
     }
 
+    /// A choice of named options, as Pattern Overlay's pattern, shown above the effect's rows.
+    struct Choice {
+        let caption: String
+        let titles: [String]
+        let chosen: (LayerEffects) -> Int
+        let choose: (inout LayerEffects, Int) -> Void
+    }
+
+    static let choices: [LayerEffectKind: Choice] = [
+        .patternOverlay: Choice(caption: "Pattern", titles: PatternPreset.allCases.map(\.displayName),
+                                chosen: { effects in
+                                    PatternPreset.allCases.firstIndex(of: effects.patternOverlay?.pattern ?? .dots) ?? 0
+                                },
+                                choose: { effects, index in
+                                    guard PatternPreset.allCases.indices.contains(index) else { return }
+                                    effects.patternOverlay?.pattern = PatternPreset.allCases[index]
+                                }),
+    ]
+
     static let all: [LayerEffectKind: [Row]] = [
         .stroke: [row("Size", \.stroke, \.size, slider: 0...20, field: 0...Double(StrokeEffect.maxSize), unit: "px"),
                   opacity(\.stroke, \.opacity)],
@@ -46,5 +65,16 @@ nonisolated enum EffectControls {
                      opacity(\.outerGlow, \.opacity)],
         .innerGlow: [row("Size", \.innerGlow, \.size, slider: 0...100, field: 0...500, unit: "px"),
                      opacity(\.innerGlow, \.opacity)],
+        .gradientOverlay: [opacity(\.gradientOverlay, \.opacity),
+                           row("Angle", \.gradientOverlay, \.angle, slider: -180...180, unit: "°")],
+        .patternOverlay: [opacity(\.patternOverlay, \.opacity),
+                          row("Angle", \.patternOverlay, \.angle, slider: -180...180, unit: "°"),
+                          row("Scale", \.patternOverlay, \.scale, slider: 10...400, field: 1...1000, unit: "%")],
+        .satin: [opacity(\.satin, \.opacity), row("Angle", \.satin, \.angle, slider: -180...180, unit: "°"),
+                 row("Distance", \.satin, \.distance, slider: 0...50, field: 0...5000, unit: "px"),
+                 row("Size", \.satin, \.size, slider: 0...100, field: 0...500, unit: "px")],
+        .bevel: [opacity(\.bevel, \.opacity), row("Angle", \.bevel, \.angle, slider: -180...180, unit: "°"),
+                 row("Depth", \.bevel, \.depth, slider: 0...50, field: 0...5000, unit: "px"),
+                 row("Size", \.bevel, \.size, slider: 0...100, field: 0...500, unit: "px")],
     ]
 }

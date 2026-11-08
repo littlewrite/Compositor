@@ -390,6 +390,13 @@ actor ImageExporter {
         try PSDWriter.flattened(raster.image)
     }
 
+    /// The document as a layered Photoshop file: each layer where it sits, with its mask, opacity and blend mode, and
+    /// folders as folders, over the flattened canvas `merged` for apps that read no layers.
+    func layeredPSD(_ snapshot: ProjectSnapshot, merged: ExportRaster) throws -> Data {
+        let layers = try PSDLayerExport.layers(for: snapshot, width: merged.image.width, height: merged.image.height)
+        return try PSDWriter.layered(width: merged.image.width, height: merged.image.height, layers: layers, merged: merged.image)
+    }
+
     func psdData(_ snapshot: ProjectSnapshot) throws -> Data {
         try psdData(render(snapshot))
     }

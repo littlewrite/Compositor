@@ -41,7 +41,7 @@ extension EditorSession {
                 let edit = try HueSaturationEdit(layerID: layer.id, original: asset, selection: nil, transform: layer.transform)
                 edit.settings = original.resolvedHSV
                 hueSaturation = edit
-            case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .gaussianBlur, .motionBlur, .addNoise,
+            case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .colorLookup, .gaussianBlur, .motionBlur, .addNoise,
                  .progressiveBlur, .bloomGlow, .rgbSplit, .vignette, .lensEffects, .tonalContrast, .sharpen, .reduceNoise:
                 var settings = original.filterLayer.applied(to: FilterSettings())
                 settings.curves = original.curves
@@ -78,7 +78,7 @@ extension EditorSession {
         case .hsv:
             guard let hueSaturation else { return nil }
             value.hsvSettings = hueSaturation.settings
-        case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .gaussianBlur, .motionBlur, .addNoise,
+        case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .colorLookup, .gaussianBlur, .motionBlur, .addNoise,
              .progressiveBlur, .bloomGlow, .rgbSplit, .vignette, .lensEffects, .tonalContrast, .sharpen, .reduceNoise:
             guard let filterEdit else { return nil }
             switch value.kind {
@@ -87,6 +87,7 @@ extension EditorSession {
             case .grain: value.grain = filterEdit.settings.grain
             case .blackWhite: value.blackWhite = filterEdit.settings.blackWhite
             case .colorBalance: value.colorBalance = filterEdit.settings.colorBalance
+            case .colorLookup: value.filterLayer.colorLookup = filterEdit.settings.colorLookup
             case .gaussianBlur: value.gaussianRadius = filterEdit.settings.radius
             case .motionBlur:
                 value.resolvedMotionAngle = filterEdit.settings.angle

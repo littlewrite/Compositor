@@ -110,13 +110,14 @@ import UIKit
 
     // MARK: Adding
 
-    /// The effects button lists the Mac's six effects, and works on a layer with pixels only, as on the Mac.
-    @Test func theEffectsMenuListsTheMacsSix() async throws {
+    /// The effects button lists the Mac's ten effects, and works on a layer with pixels only, as on the Mac.
+    @Test func theEffectsMenuListsTheMacsEffects() async throws {
         let (controller, session) = try shown()
         controller.updatePropertiesIfNeeded()
         let button = try effectsButton(in: controller)
         #expect(button.menu?.children.map(\.title)
-            == ["Stroke…", "Drop Shadow…", "Color Overlay…", "Inner Shadow…", "Outer Glow…", "Inner Glow…"])
+            == ["Stroke…", "Drop Shadow…", "Color Overlay…", "Inner Shadow…", "Outer Glow…", "Inner Glow…",
+                "Gradient Overlay…", "Pattern Overlay…", "Satin…", "Bevel & Emboss…"])
         #expect(button.showsMenuAsPrimaryAction)
         #expect(button.isEnabled)
         session.addBlankLayer()

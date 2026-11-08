@@ -944,8 +944,10 @@ final class EditorSession {
         // A different canvas, or this one at another size (a rotation), is fitted to the window again.
         let changedCanvas = document?.id != snapshot.document?.id || document?.size != snapshot.document?.size
         let keepMaskTarget = isMaskSelected && activeLayerID == snapshot.activeLayerID
-        var picking: (picker: ColorPickerState, kind: LayerEffectKind, color: PaletteColor?)?
-        if let colorPicker, case .effect(let kind) = colorPicker.target { picking = (colorPicker, kind, editingEffects.color(kind)) }
+        var picking: (picker: ColorPickerState, kind: LayerEffectKind, end: Int, color: PaletteColor?)?
+        if let colorPicker, case .effect(let kind, let end) = colorPicker.target {
+            picking = (colorPicker, kind, end, editingEffects.color(kind, end: end))
+        }
         document = snapshot.document
         activeLayerID = snapshot.activeLayerID
         isMaskSelected = keepMaskTarget && activeLayer?.mask != nil
@@ -954,7 +956,7 @@ final class EditorSession {
         // redone starts the picking over from there, so neither its OK nor its Cancel puts back a color that edit took
         // away. An Undo or Redo of the picking's own step leaves Cancel putting back the color from before the picking,
         // with no step left unless an edit made beside the picker had split the picking in two.
-        if let picking, let color = editingEffects.color(picking.kind), color != picking.color {
+        if let picking, let color = editingEffects.color(picking.kind, end: picking.end), color != picking.color {
             if group !== picking.picker { picking.picker.original = color }
             picking.picker.hsb.setRGB(color)
         }

@@ -189,7 +189,7 @@ import Testing
             session.updateFilter(settings, preview: true)
             #expect(session.activeLayer?.adjustment?.curves == settings.curves)
             await session.commitFilter()
-        case .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .gaussianBlur, .motionBlur, .addNoise,
+        case .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .colorLookup, .gaussianBlur, .motionBlur, .addNoise,
              .progressiveBlur, .bloomGlow, .rgbSplit, .vignette, .lensEffects, .tonalContrast, .sharpen, .reduceNoise:
             #expect(session.filterEdit?.kind == kind.filterKind)
             var settings = try #require(session.filterEdit).settings
@@ -254,7 +254,7 @@ import Testing
             #expect(session.levels?.settings == saved.levels)
             session.updateLevels(LevelsSettings(), preview: true)
             session.cancelLevels()
-        case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .gaussianBlur, .motionBlur, .addNoise,
+        case .curves, .exposure, .gradientMap, .grain, .blackWhite, .colorBalance, .colorLookup, .gaussianBlur, .motionBlur, .addNoise,
              .progressiveBlur, .bloomGlow, .rgbSplit:
             let reopened = try #require(session.filterEdit).settings
             #expect(FilterLayerSettings(reopened) == saved.filterLayer)

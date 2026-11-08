@@ -15,6 +15,9 @@ struct FilterSheet: View {
     private var isCameraRaw: Bool { edit?.kind == .cameraRaw }
     /// The widest slider title in the panel, so every slider starts and ends in the same place.
     @State private var labelWidth: CGFloat = 60
+    /// Color Lookup's file picker, and why the chosen file couldn't be read.
+    @State private var showsLookupPicker = false
+    @State private var lookupError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -138,6 +141,23 @@ struct FilterSheet: View {
             session.previewRimLightColor()
             session.previewVolumetricLightColor()
             session.previewDitherColor()
+        }
+        .fileImporter(isPresented: $showsLookupPicker, allowedContentTypes: ColorLookupReader.contentTypes) { result in
+            switch result {
+            case .success(let url):
+                let scoped = url.startAccessingSecurityScopedResource()
+                Task { @MainActor in
+                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                    do {
+                        session.setColorLookup(try ColorLookupReader.read(url))
+                        lookupError = nil
+                    } catch {
+                        lookupError = error.localizedDescription
+                    }
+                }
+            case .failure(let error):
+                lookupError = error.localizedDescription
+            }
         }
     }
 
@@ -520,6 +540,18 @@ struct FilterSheet: View {
             .help(help ?? "")
         case .action(let title, let help, _, let run):
             Button(title) { run(session) }.help(help ?? "")
+        case .lookup(let caption, let help, _, let name):
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Text(caption).frame(width: labelWidth, alignment: .leading)
+                    Text(name(settings) ?? "None").foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Button("Choose…") { showsLookupPicker = true }.help(help ?? "")
+                }
+                if let lookupError {
+                    Text(lookupError).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 

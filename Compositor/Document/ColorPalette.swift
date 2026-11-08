@@ -101,10 +101,11 @@ extension EditorSession {
         }
         refreshCanvasPreview?()
     }
-    /// Opens the app's picker on a layer effect's color.
-    func openEffectColorPicker(_ kind: LayerEffectKind) {
+    /// Opens the app's picker on a layer effect's color; `end` 1 is Gradient Overlay's second color.
+    func openEffectColorPicker(_ kind: LayerEffectKind, end: Int = 0) {
         guard canEditPalette, colorPicker == nil, effectsEditing != nil else { return }
-        colorPicker = ColorPickerState(target: .effect(kind: kind), original: editingEffects.color(kind) ?? .black)
+        colorPicker = ColorPickerState(target: .effect(kind: kind, end: end),
+                                       original: editingEffects.color(kind, end: end) ?? .black)
     }
     func closeColorPicker(commit: Bool) {
         if let colorPicker {
@@ -126,8 +127,9 @@ extension EditorSession {
                     // The text color is the foreground color: picking one in the Type bar moves the swatch too.
                     if commit, !isMaskSelected { foregroundColor = color }
                 }
-            case .effect(let kind):
-                setEffectColor(commit ? colorPicker.color : colorPicker.original, for: kind, picking: colorPicker, exactly: !commit)
+            case .effect(let kind, let end):
+                setEffectColor(commit ? colorPicker.color : colorPicker.original, for: kind, end: end,
+                               picking: colorPicker, exactly: !commit)
             case .gradientMap(let highlights):
                 // The end has been previewing the working color; Cancel puts the original back.
                 setGradientMapColor(commit ? colorPicker.color : colorPicker.original, highlights: highlights)
@@ -163,16 +165,17 @@ extension EditorSession {
     }
     /// While the picker is open on an effect's color, the canvas follows its working color.
     func previewEffectColor() {
-        guard let colorPicker, case .effect(let kind) = colorPicker.target else { return }
-        setEffectColor(colorPicker.color, for: kind, picking: colorPicker)
+        guard let colorPicker, case .effect(let kind, let end) = colorPicker.target else { return }
+        setEffectColor(colorPicker.color, for: kind, end: end, picking: colorPicker)
     }
     /// The whole picking, OK or Cancel included, is one undo step, yet Undo stays available while picking. A color the
     /// effect already has, to the 8 bits the picker works in, is left as it is: an effect's color can be finer, written
     /// by hand or by a script, and the picker opening on it, or following an Undo to it, mustn't add a step for that.
     /// `exactly`: for Cancel, which puts back the very color the effect had, however fine.
-    private func setEffectColor(_ color: PaletteColor, for kind: LayerEffectKind, picking: ColorPickerState, exactly: Bool = false) {
-        guard exactly || editingEffects.color(kind)?.quantized != color.quantized else { return }
-        changeEffects(coalescing: picking) { $0.setColor(color, for: kind) }
+    private func setEffectColor(_ color: PaletteColor, for kind: LayerEffectKind, end: Int = 0, picking: ColorPickerState,
+                                exactly: Bool = false) {
+        guard exactly || editingEffects.color(kind, end: end)?.quantized != color.quantized else { return }
+        changeEffects(coalescing: picking) { $0.setColor(color, for: kind, end: end) }
     }
     /// Preview the picker's working color in the active on-canvas text draft.
     func previewTextColor() {
@@ -319,8 +322,8 @@ extension EditorSession {
 /// What the open color picker edits: a palette swatch, or one end of the Gradient Map being edited.
 enum ColorPickerTarget: Equatable {
     case palette(background: Bool)
-    /// A layer effect's own color.
-    case effect(kind: LayerEffectKind)
+    /// A layer effect's own color, or Gradient Overlay's second color (`end` 1).
+    case effect(kind: LayerEffectKind, end: Int)
     case gradientMap(highlights: Bool)
     case vignette
     /// One of Rim Light's lights.
@@ -335,7 +338,7 @@ enum ColorPickerTarget: Equatable {
     var title: String {
         switch self {
         case .text: return "Color Picker (Text Color)"
-        case .effect(let kind): return "Color Picker (\(kind.rawValue) Color)"
+        case .effect(let kind, let end): return "Color Picker (\(end == 1 ? "Gradient End" : "\(kind.rawValue) Color"))"
         case .palette(let background): return background ? "Color Picker (Background Color)" : "Color Picker (Foreground Color)"
         case .gradientMap(let highlights): return highlights ? "Color Picker (Gradient Map Highlights)" : "Color Picker (Gradient Map Shadows)"
         case .vignette: return "Color Picker (Vignette Color)"
