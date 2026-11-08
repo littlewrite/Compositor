@@ -1,8 +1,8 @@
-# Compositor project format, versions 1–21
+# Compositor project format, versions 1–22
 
 A `.comp` file is a macOS document package containing `manifest.json` and an `images/` directory of `<layer UUID>.png` assets.
 
-The manifest identifies `com.compositor.project`, version `21` for new saves (versions `1`–`20` remain readable), and the sRGB working space. It stores document UUID, pixel dimensions, active layer UUID, and layers in bottom-to-top order. Each layer stores its UUID, name, visibility, transform (origin, size, clockwise rotation, flips, sampling), and optional image filename. Blank layers have no image asset.
+The manifest identifies `com.compositor.project`, version `22` for new saves (versions `1`–`21` remain readable), and the sRGB working space. It stores document UUID, pixel dimensions, active layer UUID, and layers in bottom-to-top order. Each layer stores its UUID, name, visibility, transform (origin, size, clockwise rotation, flips, sampling), and optional image filename. Blank layers have no image asset.
 
 Embedded PNGs preserve source pixels and transparency; transforms remain separate. Projects survive moving or deleting imported source photos. Saving uses a coordinated atomic package replacement. Unsupported versions, invalid metadata, missing assets, unsafe paths, and oversized data are rejected before replacing the live document.
 
@@ -70,3 +70,5 @@ Version 19 adds the `Sharpen` adjustment kind: an unsharp mask, its settings in 
 Version 20 adds `prismFringe` 0–100 to the `lens` settings: how far Prism splits each copy's red and blue apart, in hundredths of a percent of the document's longer side (0 keeps the copies crisp). Left out, it takes 30, the split earlier versions always drew. Older app builds reject v20.
 
 Version 21 adds the `Reduce Noise` adjustment kind, its settings in a `reduceNoise` object inside `filterLayerSettings`: `strength` (how much grain is smoothed from the brightness), `details` (how much texture is kept from it) and `color` (how much colored speckle is smoothed), each 0–100. Files declaring 1–20 cannot contain it, and older app builds reject v21.
+
+Version 22 adds optional `fill` to a layer record, for fill layers. It holds exactly one of `color` (`red`, `green`, `blue`, 0–1) for a Solid Color fill, or `gradient` for a Gradient fill: `shape` (`Linear` or `Radial`), `startColor` and `endColor` (the same RGB triple), `reversed`, and `start` and `end` as fractions of the layer's box (linear runs from start to end; radial is centered on start). The layer still saves its PNG like any other; the record lets the fill be changed again after a reopen. A record with `fill` must have an image and cannot be a group, an adjustment, text or a shape. Files declaring 1–21 cannot contain it, and older app builds reject v22.

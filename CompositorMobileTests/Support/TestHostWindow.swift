@@ -52,14 +52,6 @@ final class TestWindow: UIWindow {
                      toolbar: Bool = true, style: UIUserInterfaceStyle? = nil) async throws -> UIWindow {
         try await UITestGate.waitForTurn()
         let scene = try #require(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first)
-        // A test host launches in the background: the system's pickers, menus and keyboard need its scene in front, as
-        // the app's window is when someone uses it.
-        if scene.activationState != .foregroundActive {
-            UIApplication.shared.requestSceneSessionActivation(scene.session, userActivity: nil, options: nil)
-            for _ in 0..<50 where scene.activationState != .foregroundActive {
-                try await Task.sleep(for: .milliseconds(20))
-            }
-        }
         let window = TestWindow(windowScene: scene)
         UITestGate.take(window)
         window.frame = CGRect(origin: .zero, size: size)
@@ -68,6 +60,17 @@ final class TestWindow: UIWindow {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         controller.view.layoutIfNeeded()
+        // A test host launches in the background, and hiding the window the test before it had leaves its scene there:
+        // the system's pickers, menus and keyboard need the scene in front, as the app's window is when someone uses
+        // it, and so does a tab that draws its project. The window is on screen before this asks, since a scene with
+        // none to show isn't brought forward.
+        func inFront(_ scene: UIWindowScene) -> Bool {
+            scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive
+        }
+        for _ in 0..<250 where !inFront(scene) {
+            UIApplication.shared.requestSceneSessionActivation(scene.session, userActivity: nil, options: nil)
+            try await Task.sleep(for: .milliseconds(20))
+        }
         try await Task.sleep(for: .milliseconds(100))
         return window
     }

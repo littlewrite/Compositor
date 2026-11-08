@@ -7,9 +7,32 @@ nonisolated enum GradientStyle: String, CaseIterable, Sendable {
 }
 
 /// Linear runs from start to end; radial is centered on the start with the end on its rim.
-nonisolated enum GradientShape: String, CaseIterable, Sendable {
+nonisolated enum GradientShape: String, CaseIterable, Codable, Sendable {
     case linear = "Linear"
     case radial = "Radial"
+}
+
+/// A Gradient fill layer's gradient: two stops, as fractions of the layer's box, so it redraws with the layer.
+nonisolated struct GradientFillSettings: Equatable, Codable, Sendable {
+    var shape = GradientShape.linear
+    var startColor = PaletteColor.black
+    var endColor = PaletteColor.white
+    var reversed = false
+    var start = CGPoint(x: 0.5, y: 0)
+    var end = CGPoint(x: 0.5, y: 1)
+
+    var isValid: Bool {
+        [start.x, start.y, end.x, end.y].allSatisfy { $0.isFinite && (0...1).contains($0) }
+    }
+
+    var cgGradient: CGGradient? {
+        var colors = [startColor, endColor].map {
+            CGColor(srgbRed: $0.red, green: $0.green, blue: $0.blue, alpha: 1)
+        }
+        if reversed { colors.reverse() }
+        return CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                          colors: colors as CFArray, locations: [0, 1])
+    }
 }
 
 nonisolated struct GradientSettings: Equatable, Sendable {

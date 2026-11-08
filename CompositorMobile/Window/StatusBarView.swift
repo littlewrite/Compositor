@@ -112,7 +112,8 @@ final class StatusBarView: MobileView {
             return String(format: "%@ to clone · Drag the crosshair, or Option-tap, to copy from elsewhere · %@".localized,
                           pencil, fingers)
         case .blur:
-            let action = (session.blurMode == .blur ? "soften" : session.blurMode == .smudge ? "smudge" : "push pixels").localized
+            let action = (session.blurMode == .blur ? "soften" : session.blurMode == .smudge ? "smudge"
+                          : session.blurMode == .sharpen ? "sharpen" : "push pixels").localized
             return String(format: "%@ to %@ · %@".localized, pencil, action, fingers)
         case .move:
             // A finger moves layers whether or not it paints.
@@ -127,7 +128,8 @@ final class StatusBarView: MobileView {
         case .lasso:
             return "Draw around what to select · Drag inside to move it · Two fingers move and zoom".localized
         case .wand:
-            let tap = (session.wandMode == .object ? "Tap an object to select it" : "Tap to select similar colors").localized
+            let tap = (session.wandMode == .object ? "Tap an object to select it"
+                       : session.wandMode == .quick ? "Drag to select similar areas" : "Tap to select similar colors").localized
             return String(format: "%@ · Drag inside to move it · Two fingers move and zoom".localized, tap)
         case .crop:
             return "Drag a frame, or its edges · Drag inside to move it · Two fingers move and zoom".localized

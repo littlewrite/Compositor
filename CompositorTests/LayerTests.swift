@@ -543,6 +543,96 @@ struct LayerTests {
         #expect((session.document?.layers.count ?? 0) == beforeCount - 1)
     }
 
+    @Test func mergeVisibleBakesShownLayersAndKeepsHiddenOnes() throws {
+        func asset(_ color: CGColor, name: String) throws -> ImportedImage {
+            let ctx = try #require(CGContext(data: nil, width: 16, height: 16, bitsPerComponent: 8,
+                                             bytesPerRow: 64, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            ctx.setFillColor(color)
+            ctx.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+            let image = try #require(ctx.makeImage())
+            return ImportedImage(image: image, thumbnail: image, name: name)
+        }
+        let session = EditorSession()
+        session.createDocument(width: 32, height: 24)
+        session.insert(try asset(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1), name: "Red"))
+        let redID = try #require(session.activeLayerID)
+        session.insert(try asset(CGColor(srgbRed: 0, green: 1, blue: 0, alpha: 1), name: "Green"))
+        session.insert(try asset(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1), name: "Blue"))
+        session.toggleLayerVisibility(redID)
+        #expect(session.canMergeVisibleLayers)
+
+        let before = try #require(session.document?.layers.count)
+        session.mergeVisibleLayers()
+        let layers = try #require(session.document?.layers)
+        #expect(layers.count == before - 1)
+        #expect(layers.contains { $0.id == redID && !$0.isVisible }, "the hidden layer stays")
+        #expect(layers.contains { $0.name == "Merged" && $0.asset != nil })
+        #expect(session.history.undoName == "Merge Visible")
+
+        session.undo()
+        #expect(session.document?.layers.count == before)
+    }
+
+    @Test func flattenImageMakesOneOpaqueCanvasSizedLayer() throws {
+        let source = try #require(CGContext(data: nil, width: 20, height: 20, bitsPerComponent: 8,
+            bytesPerRow: 80, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        source.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        source.fill(CGRect(x: 6, y: 6, width: 8, height: 8))
+        let image = try #require(source.makeImage())
+        let session = EditorSession()
+        session.createDocument(width: 20, height: 20)
+        session.backgroundColor = .white
+        session.insert(ImportedImage(image: image, thumbnail: image, name: "Red square"))
+        session.insert(ImportedImage(image: image, thumbnail: image, name: "Hidden copy"))
+        let hidden = try #require(session.activeLayerID)
+        session.toggleLayerVisibility(hidden)
+        #expect(session.canFlattenImage)
+
+        session.flattenImage()
+        let layers = try #require(session.document?.layers)
+        #expect(layers.count == 1 && layers[0].name == "Background")
+        #expect(session.history.undoName == "Flatten Image")
+        let flat = try #require(layers[0].asset?.image)
+        #expect(flat.width == 20 && flat.height == 20)
+
+        let pixels = try #require(CGContext(data: nil, width: 20, height: 20, bitsPerComponent: 8, bytesPerRow: 80,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+        pixels.draw(flat, in: CGRect(x: 0, y: 0, width: 20, height: 20))
+        let bytes = try #require(pixels.data).assumingMemoryBound(to: UInt8.self)
+        let corner = 0, center = (10 * 20 + 10) * 4
+        #expect(bytes[corner + 3] == 255 && bytes[corner] >= 250 && bytes[corner + 1] >= 250 && bytes[corner + 2] >= 250,
+                "the empty area takes the white background")
+        #expect(bytes[center] >= 250 && bytes[center + 1] <= 5 && bytes[center + 3] == 255, "the red square stays")
+    }
+
+    @Test func rasterizeLayerKeepsItsPixelsAndEndsTheShape() throws {
+        let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8,
+            bytesPerRow: 32, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        let image = try #require(context.makeImage())
+        let session = EditorSession()
+        session.createDocument(width: 8, height: 8)
+        session.insert(ImportedImage(image: image, thumbnail: image, name: "Shape"))
+        let id = try #require(session.activeLayerID)
+        let index = try #require(session.document?.layers.firstIndex { $0.id == id })
+        let style = LayerShapeStyle(kind: .rectangle, red: 1, green: 0, blue: 0, cornerRadius: 0)
+        session.document?.layers[index].shape = LayerShape(style: style, image: image)
+        #expect(session.canRasterizeLayer)
+
+        session.rasterizeLayer()
+        #expect(session.activeLayer?.liveShape == nil)
+        #expect(session.activeLayer?.asset?.image === image, "the drawn pixels stay")
+        #expect(session.history.undoName == "Rasterize Layer")
+
+        session.undo()
+        #expect(session.activeLayer?.liveShape != nil)
+    }
+
     @Test func testContextMenuActionsPreserveUndoRedo() throws {
         let session = sessionWithThreeLayers()
         let (_, coordinator, _) = makeLayerTable(session: session)

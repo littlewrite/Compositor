@@ -27,7 +27,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// The editor and a 200 × 100 project of one gray layer without a window: the tests that only read or set an
@@ -112,14 +112,15 @@ import UIKit
 
     /// The effects button lists the Mac's six effects, and works on a layer with pixels only, as on the Mac.
     @Test func theEffectsMenuListsTheMacsSix() async throws {
-        let (window, controller, session) = try await shownWindow()
-        defer { window.isHidden = true }
+        let (controller, session) = try shown()
+        controller.updatePropertiesIfNeeded()
         let button = try effectsButton(in: controller)
         #expect(button.menu?.children.map(\.title)
             == ["Stroke…", "Drop Shadow…", "Color Overlay…", "Inner Shadow…", "Outer Glow…", "Inner Glow…"])
         #expect(button.showsMenuAsPrimaryAction)
         #expect(button.isEnabled)
         session.addBlankLayer()
+        controller.updatePropertiesIfNeeded()
         #expect(try effectsButton(in: controller).isEnabled == false)
     }
 
@@ -1356,15 +1357,17 @@ import UIKit
         #expect(titles(panel.menu(for: layer, in: session)).contains("Delete Layer"))
     }
 
-    /// Convert to 16-Bit, which the iPad doesn't do yet, is in the row's menu as on the Mac, after Merge, dimmed.
-    @Test func convertToSixteenBitIsListedDimmed() async throws {
+    /// Convert to 16-Bit is in the row's menu as on the Mac, after Merge, and applies to the 8-bit layers there.
+    @Test func convertToSixteenBitIsListedAfterMerge() async throws {
         let (window, _, session, panel, _, layer) = try await rowWithTwoEffects()
         defer { window.isHidden = true }
         let items = panel.menu(for: layer, in: session).children.flatMap { ($0 as? UIMenu)?.children ?? [$0] }
         let titles = items.map(\.title)
         #expect(titles.firstIndex(of: "Convert to 16-Bit") == titles.firstIndex(of: session.mergeTitle).map { $0 + 1 })
         let convert = try #require(items.first { $0.title == "Convert to 16-Bit" } as? UIAction)
-        #expect(convert.attributes.contains(.disabled))
+        #expect(!convert.attributes.contains(.disabled))
+        convert.performWithSender(nil, target: nil)
+        #expect(session.document?.layers.first { $0.id == layer }?.asset?.deep != nil)
     }
 
     /// A touch on the canvas lets go of a selected effect, as a click on the Mac's canvas does.

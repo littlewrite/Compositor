@@ -22,7 +22,7 @@ import Testing
                                          count: context.bytesPerRow * context.height))
     }
 
-    @Test(arguments: [BlurToolMode.smudge])
+    @Test(arguments: [BlurToolMode.smudge, .sharpen])
     func matchesTheCPU(mode: BlurToolMode) throws {
         guard GPUCanvasRenderer.shared != nil else { return }
         let image = try photo()

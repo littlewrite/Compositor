@@ -26,7 +26,7 @@ struct LassoControls: View {
                             ForEach(WandMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
                         .pickerStyle(.segmented).labelsHidden().fixedSize()
-                        .help("Press Tab to switch between Wand and Object")
+                        .help("Press Tab to switch between Wand, Quick and Object")
                     }
                     if session.tool == .lasso {
                         Picker("Lasso", selection: Binding(get: { session.lassoKind }, set: { kind in
@@ -45,7 +45,7 @@ struct LassoControls: View {
                     }
                                                       .pickerStyle(.segmented).labelsHidden().fixedSize()
                                                       .help("Hold Shift to add or Option to subtract for one outline")
-                    if session.tool == .wand, session.wandMode == .wand { wandControls }
+                    if session.tool == .wand, session.wandMode != .object { wandControls }
                     if session.tool == .wand, session.wandMode == .object { objectSelectionControls }
                     // Rectangles snap to whole pixels, so smoothing doesn't apply (as in Photoshop); ellipses curve.
                     if session.tool == .lasso || session.tool == .wand || (session.tool == .marquee && session.marqueeKind == .ellipse) {
@@ -80,19 +80,34 @@ struct LassoControls: View {
                                 change: { session.wandSettings.tolerance = Int(min(255, max(0, $0.rounded()))) })
             }
             .help("How far each color channel (0–255) can differ from the clicked color and still be selected")
-            Picker("Sample Size", selection: $session.wandSettings.sampleSize) {
-                ForEach(WandSampleSize.allCases, id: \.self) { Text($0.title).tag($0) }
+            if session.wandMode != .quick {
+                Picker("Sample Size", selection: $session.wandSettings.sampleSize) {
+                    ForEach(WandSampleSize.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().fixedSize()
+                .help("Match the clicked pixel, or the average of the pixels around it")
             }
-            .labelsHidden().fixedSize()
-            .help("Match the clicked pixel, or the average of the pixels around it")
             Picker("Sample", selection: $session.wandSettings.sampleAllLayers) {
                 Text("This Layer").tag(false)
                 Text("All Layers").tag(true)
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             .help("Read colors from the active layer only, or from every visible layer as shown")
-            Toggle("Contiguous", isOn: $session.wandSettings.contiguous)
-                .help("Select only similar pixels connected to the one you click; off selects them everywhere")
+            if session.wandMode != .quick {
+                Toggle("Contiguous", isOn: $session.wandSettings.contiguous)
+                    .help("Select only similar pixels connected to the one you click; off selects them everywhere")
+            } else {
+                HStack(spacing: 6) {
+                    Text("Size").scrubbable(sensitivity: 0.5, value: $session.brushSettings.diameter, range: 1...2000)
+                    TextField("Size", value: Binding(get: { Double(session.brushSettings.diameter) },
+                                                    set: { session.brushSettings.diameter = min(2000, max(1, $0.isFinite ? $0 : 20)) }),
+                              format: .number.precision(.fractionLength(0)))
+                        .frame(width: 48).textFieldStyle(.roundedBorder)
+                        .arrowSteps(value: { Double(session.brushSettings.diameter) },
+                                    change: { session.brushSettings.diameter = min(2000, max(1, $0)) })
+                }
+                .help("How wide the Quick Selection brush is")
+            }
         }
     }
 
@@ -120,7 +135,7 @@ struct LassoControls: View {
         }
     }
 
-    /// Expand, Contract and Feather, sharing one pixel amount (1–500, default 5); all disabled without a selection.
+    /// Expand, Contract, Border and Feather, sharing one pixel amount (1–500, default 5); all disabled without a selection.
     private var modifyControls: some View {
         HStack(spacing: 6) {
             Text("Size").scrubbable(sensitivity: 1, value: $session.selectionModifyAmount, range: 1...500)
@@ -193,6 +208,11 @@ struct SelectionModifyIcon: View {
                 var outer = context
                 outer.opacity = 0.28
                 outer.stroke(Path(roundedRect: square(1.4), cornerRadius: 3.4 * unit), with: .foreground, lineWidth: 1.2 * unit)
+            case .border:
+                var ring = context
+                ring.stroke(Path(roundedRect: square(3.2), cornerRadius: 1.6 * unit), with: .foreground, lineWidth: 2.4 * unit)
+                ring.opacity = 0.45
+                ring.stroke(Path(roundedRect: square(8.6), cornerRadius: 1 * unit), with: .foreground, lineWidth: 1.1 * unit)
             }
         }
         .accessibilityHidden(true)

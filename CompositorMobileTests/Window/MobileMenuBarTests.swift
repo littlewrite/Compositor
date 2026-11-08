@@ -53,9 +53,10 @@ import UIKit
     @Test func editIsTheMacs() throws {
         let bar = MenuBarModel.built(by: AppDelegate())
         let edit = try #require(bar.menu(titled: "Edit"))
-        #expect(edit.commands.map(\.title) == ["Undo", "Redo", "Cut", "Copy", "Copy Merged", "Paste", "Fill with Foreground Color",
+        #expect(edit.commands.map(\.title) == ["Undo", "Redo", "Cut", "Copy", "Copy Merged", "Paste", "Paste Into",
+                                               "Fill with Foreground Color",
                                                "Fill with Background Color", "Clear Selection Pixels", "Content-Aware Fill…"])
-        #expect(edit.commands.map(shortcut) == ["⌘Z", "⇧⌘Z", "⌘X", "⌘C", "⇧⌘C", "⌘V", "⌥⌫", "⌘⌫", "", "⇧⌫"])
+        #expect(edit.commands.map(shortcut) == ["⌘Z", "⇧⌘Z", "⌘X", "⌘C", "⇧⌘C", "⌘V", "⇧⌘V", "⌥⌫", "⌘⌫", "", "⇧⌫"])
         #expect(!edit.submenus.map(\.title).contains("Find"))
     }
 
@@ -146,7 +147,10 @@ import UIKit
         }
         let image = try #require(bar.menu(titled: "Image"))
         #expect(elements(image).map(\.title) == ["Curves…", "Levels…", "Hue/Saturation…", "Black & White…", "Color Balance…", "Exposure…",
-                                                 "Gradient Map…", "Grain…", "Invert", "Canvas Size…", "Image Size…", "Trim…",
+                                                 "Gradient Map…", "Grain…", "Brightness/Contrast…", "Shadows/Highlights…", "Vibrance…",
+                                                 "Posterize…", "Threshold…", "Channel Mixer…", "Photo Filter…", "Selective Color…",
+                                                 "Replace Color…", "Desaturate", "Auto Tone", "Auto Contrast", "Auto Color", "Equalize",
+                                                 "Invert", "Canvas Size…", "Image Size…", "Trim…",
                                                  "Rotate Canvas 90° Clockwise", "Rotate Canvas 90° Counterclockwise",
                                                  "Flip Canvas Horizontal", "Flip Canvas Vertical"])
         let filter = try #require(bar.menu(titled: "Filter"))
@@ -155,12 +159,20 @@ import UIKit
         #expect(filter.children.map { item in if case .menu(let group) = item { group.commands.map(\.title) } else { [] } }
                 == [["Last Filter"], ["Gaussian Blur…", "Motion Blur…", "Progressive Blur…", "Sharpen…", "Reduce Noise…", "Add Noise…",
                                       "Vignette…", "Bloom / Glow…", "RGB Split…", "Lens Effects…", "Tonal Contrast…"],
-                    ["Dither…", "Scanlines…", "Volumetric Light…", "Rim Light…", "Lens Correction…", "Camera Raw Filter…",
-                     "Remove Background…"]])
+                    ["Dither…", "Scanlines…", "Volumetric Light…", "Rim Light…", "Lens Correction…",
+                     "Wave…", "Ripple…", "Tilt-Shift Blur…", "Iris Blur…",
+                     "Box Blur…", "Zoom Blur…", "Bokeh Blur…", "Median…", "Photo Effect…", "Mosaic…", "Crystallize…",
+                     "Color Halftone…", "Pointillize…", "Hexagonal Pixelate…", "Twirl…", "Pinch…", "Spherize…", "Vortex…",
+                     "Hole…", "Circle Splash…", "Torus Lens…", "Gloom…", "Kaleidoscope…", "Find Edges…", "Comic…",
+                     "Line Screen…", "Circular Screen…", "Hatched Screen…", "Glass…", "Glass Lozenge…",
+                     "Triangle Kaleidoscope…", "False Color…", "Monochrome…", "Disc Blur…", "Lens Flare…", "Light Tunnel…",
+                     "Solarize…", "Clouds…", "Difference Clouds…", "Offset…", "Camera Raw Filter…", "Remove Background…"]])
         let fill = try #require(bar.menu(titled: "Edit")?.commands.last)
         // Those with an editor open; the rest are dimmed.
         for command in filter.commands.filter({ ($0.propertyList as? String).flatMap(FilterKind.init) != nil })
-            + image.commands.filter({ ["Black & White…", "Color Balance…", "Exposure…", "Gradient Map…", "Grain…"].contains($0.title) })
+            + image.commands.filter({ ["Black & White…", "Color Balance…", "Exposure…", "Gradient Map…", "Grain…",
+                                       "Brightness/Contrast…", "Shadows/Highlights…", "Vibrance…", "Posterize…", "Threshold…",
+                                       "Channel Mixer…", "Photo Filter…", "Selective Color…", "Replace Color…"].contains($0.title) })
             + [fill] {
             let kind = try #require((command.propertyList as? String).flatMap(FilterKind.init), "\(command.title)")
             // Content-Aware Fill waits for a selection too, which this project hasn't.
@@ -200,11 +212,14 @@ import UIKit
                 == [AdjustmentKind.imageAdjustments.map { $0.rawValue + ($0.isEditable ? "…" : "") },
                     AdjustmentKind.filters.map { $0.rawValue + "…" }])
         let commands = Array(layer.commands.dropFirst(AdjustmentKind.allCases.count))
-        #expect(commands.map(\.title) == ["Edit Adjustment…", "Transform Layer", "Duplicate Layer", "Create Clipping Mask",
+        #expect(commands.map(\.title) == ["Edit Adjustment…", "Transform Layer", "Duplicate Layer", "Layer via Cut",
+                                          "Create Clipping Mask",
                                           "Group Selected Layers", "Ungroup Layers", "Move Out of Folder", "New Blank Layer",
+                                          "New Color Fill Layer", "New Gradient Fill Layer",
                                           "Rename Layer…", "Hide Layer", "Move Layer Up", "Move Layer Down", "Merge Down",
+                                          "Merge Visible", "Flatten Image", "Rasterize Layer",
                                           "Flip Layer Horizontal", "Flip Layer Vertical", "Delete Layer"])
-        #expect(commands.map(shortcut) == ["", "⌘T", "⌘J", "⌥⌘G", "⌘G", "⇧⌘G", "", "⇧⌘N", "", "", "⌘]", "⌘[", "⌘E", "", "", ""])
+        #expect(commands.map(shortcut) == ["", "⌘T", "⌘J", "⇧⌘J", "⌥⌘G", "⌘G", "⇧⌘G", "", "⇧⌘N", "", "", "", "", "⌘]", "⌘[", "⌘E", "", "", "", "", "", ""])
     }
 
     /// The bar's command titled `title` in the menu titled `menu`.
@@ -353,7 +368,7 @@ import UIKit
         let session = try #require(controller.activeTab?.session)
 
         choose(try command("Rename Layer…", in: "Layer", of: bar), in: controller)
-        for _ in 0..<100 where !(controller.presentedViewController is UIAlertController) { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(2) { controller.presentedViewController is UIAlertController }
         let alert = try #require(controller.presentedViewController as? UIAlertController)
         #expect(alert.title == "Rename Layer")
         #expect(alert.textFields?.first?.text == "Gray")

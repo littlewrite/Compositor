@@ -118,6 +118,29 @@ struct SelectionClipboardTests {
         #expect(try pixel(try await render(session), x: 15, y: 15) == [255, 0, 0, 255])
     }
 
+    @Test func pasteIntoMasksThePastedPixelsToTheSelection() async throws {
+        let session = await makeSession()
+        let pasteboard = SystemPasteboard.pasteboard
+        pasteboard.clearContents()
+        pasteboard.setData(try png(width: 100, height: 40), forType: .png)
+        select(session, CGRect(x: 10, y: 10, width: 20, height: 20))
+        #expect(session.canPasteInto)
+
+        let count = session.history.undoCount
+        session.pasteInto()
+        #expect(session.history.undoCount == count + 1 && session.history.undoName == "Paste Into")
+        let pasted = try #require(session.activeLayer)
+        #expect(pasted.mask != nil, "the selection became the new layer's mask")
+        #expect(pasted.size == CGSize(width: 100, height: 40))
+        #expect(session.document?.selection == nil)
+
+        let shown = try await render(session)
+        #expect(try pixel(shown, x: 15, y: 15) == [51, 102, 153, 255], "inside the selection the paste shows")
+        #expect(try pixel(shown, x: 60, y: 20) == [0, 0, 255, 255], "outside it the layer below shows")
+        session.undo()
+        #expect(session.document?.layers.count == 1)
+    }
+
     @Test func layerViaCopyCopiesTheSelectionOrDuplicatesTheLayer() async throws {
         let session = await makeSession()
         let source = try #require(session.activeLayer)
@@ -130,6 +153,23 @@ struct SelectionClipboardTests {
         session.layerViaCopy()
         #expect(session.history.undoName == "Duplicate Layer" && session.activeLayer?.name == "\(source.name) copy")
         #expect(session.activeLayer?.asset?.image === source.asset?.image)
+    }
+
+    @Test func layerViaCutMovesThePixelsAndLeavesAHoleInOneStep() async throws {
+        let session = await makeSession()
+        let source = try #require(session.activeLayerID)
+        select(session, CGRect(x: 10, y: 10, width: 10, height: 10))
+        let count = session.history.undoCount
+        await session.layerViaCut()
+        #expect(session.history.undoCount == count + 1 && session.history.undoName == "Layer via Cut")
+        let cut = try #require(session.activeLayer)
+        #expect(cut.id != source && session.document?.layers.count == 2)
+        #expect(try await layerPixel(session, cut.id, x: 15, y: 15) == [255, 0, 0, 255])
+        #expect(try await layerPixel(session, source, x: 15, y: 15)[3] == 0, "the source keeps only a hole")
+
+        session.undo()
+        #expect(session.document?.layers.count == 1)
+        #expect(try await layerPixel(session, source, x: 15, y: 15) == [255, 0, 0, 255])
     }
 
     @Test func duplicateGIFReservesThumbnailBudgetForEachSavedLayer() throws {

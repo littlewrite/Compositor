@@ -57,6 +57,9 @@ extension EditorSession {
         // A text layer that is still text takes the color as its own, rather than being painted over: the letters
         // change color and stay editable.
         if !isMaskSelected, selection == nil, layer.liveText != nil, recolorText(layer.id, to: value) { return }
+        // So does a Solid Color fill layer: the fill takes the color, rather than a copy of its pixels being painted over.
+        if !isMaskSelected, selection == nil, layer.liveFill?.content.isSolid == true,
+           recolorFillLayer(layer.id, to: value) { return }
         let color = isMaskSelected
             ? CGColor(gray: value.red, alpha: 1)
             : CGColor(colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, components: [value.red, value.green, value.blue, 1])!

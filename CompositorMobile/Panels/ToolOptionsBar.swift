@@ -409,23 +409,35 @@ final class ToolOptionsBar: MobileView {
         add(mode)
         refreshers.append { mode.selectedSegmentIndex = modes.firstIndex(of: $0.displayedSelectionMode) ?? 0 }
 
-        if tool == .wand, session.wandMode == .wand {
+        if tool == .wand, session.wandMode != .object {
             let tolerance = NumberField(caption: "Tolerance", width: 44, range: 0...255)
             tolerance.onChange = { [weak self] in self?.session?.wandSettings.tolerance = Int($0.rounded()) }
-            let sizes = WandSampleSize.allCases
-            let sample = PopUpButton()
-            sample.accessibilityLabel = "Sample Size".localized
-            sample.onChoose = { [weak self] title in
-                if let size = sizes.first(where: { $0.title == title }) { self?.session?.wandSettings.sampleSize = size }
-            }
             let layers = OptionControls.segments(["This Layer", "All Layers"]) { [weak self] in self?.session?.wandSettings.sampleAllLayers = $0 == 1 }
-            let contiguous = OptionControls.checkbox("Contiguous") { [weak self] in self?.session?.wandSettings.contiguous = $0 }
-            for view in [tolerance, sample, layers, contiguous] as [UIView] { add(view) }
-            refreshers.append { session in
-                tolerance.show(Double(session.wandSettings.tolerance))
-                sample.show([sizes.map(\.title)], chosen: session.wandSettings.sampleSize.title)
-                layers.selectedSegmentIndex = session.wandSettings.sampleAllLayers ? 1 : 0
-                contiguous.isSelected = session.wandSettings.contiguous
+            if session.wandMode == .quick {
+                // The Quick Selection brush's tip; Sample Size and Contiguous are the Wand's alone.
+                let size = NumberField(caption: "Size", unit: "px", width: 56, range: 1...2000)
+                size.onChange = { [weak self] in self?.session?.brushSettings.diameter = CGFloat($0) }
+                for view in [tolerance, layers, size] as [UIView] { add(view) }
+                refreshers.append { session in
+                    tolerance.show(Double(session.wandSettings.tolerance))
+                    layers.selectedSegmentIndex = session.wandSettings.sampleAllLayers ? 1 : 0
+                    size.show(Double(session.brushSettings.diameter))
+                }
+            } else {
+                let sizes = WandSampleSize.allCases
+                let sample = PopUpButton()
+                sample.accessibilityLabel = "Sample Size".localized
+                sample.onChoose = { [weak self] title in
+                    if let size = sizes.first(where: { $0.title == title }) { self?.session?.wandSettings.sampleSize = size }
+                }
+                let contiguous = OptionControls.checkbox("Contiguous") { [weak self] in self?.session?.wandSettings.contiguous = $0 }
+                for view in [tolerance, sample, layers, contiguous] as [UIView] { add(view) }
+                refreshers.append { session in
+                    tolerance.show(Double(session.wandSettings.tolerance))
+                    sample.show([sizes.map(\.title)], chosen: session.wandSettings.sampleSize.title)
+                    layers.selectedSegmentIndex = session.wandSettings.sampleAllLayers ? 1 : 0
+                    contiguous.isSelected = session.wandSettings.contiguous
+                }
             }
         }
         if tool == .wand, session.wandMode == .object {
@@ -449,6 +461,7 @@ final class ToolOptionsBar: MobileView {
         }
         add(modifyControl("Expand", amount: \.selectionModifyAmount, range: 1...500) { $0.expandSelection(by: $1) })
         add(modifyControl("Contract", amount: \.selectionModifyAmount, range: 1...500) { $0.contractSelection(by: $1) })
+        add(modifyControl("Border", amount: \.selectionModifyAmount, range: 1...500) { $0.borderSelection(by: $1) })
         add(modifyControl("Feather", amount: \.selectionModifyAmount, range: 1...250, disablesAmount: false) { $0.featherSelection(by: $1) })
         addSpace()
         let empty = OptionControls.caption("Empty selection", color: .secondaryLabel)

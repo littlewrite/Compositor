@@ -35,15 +35,13 @@ import UIKit
 
     /// Waits up to a few seconds for `condition`, as the open's and the window's own tasks finish.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
-    /// A window on the app's screen, which a canvas draws in.
-    private func window() throws -> UIWindow {
-        let scene = try #require(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 1024, height: 768)
-        return window
+    /// A window on the app's screen, `controller` over it, which a canvas draws in: brought forward as the canvas makes
+    /// its textures only in a scene in front.
+    private func window(_ controller: UIViewController = UIViewController()) async throws -> UIWindow {
+        try await TestHostWindow.show(controller, size: CGSize(width: 1024, height: 768), toolbar: false)
     }
 
     private func running(_ text: String) -> Line { Line(text: text, isDone: false) }
@@ -156,7 +154,8 @@ import UIKit
     @Test func aTabInFrontSaysEachStepAndEndsWithItsFirstFrame() async throws {
         let url = try savedProject()
         defer { try? FileManager.default.removeItem(at: url) }
-        let window = try window()
+        let window = try await window()
+        defer { window.isHidden = true }
         let tab = EditorTab()
         tab.canvas.frame = window.bounds
         window.addSubview(tab.canvas)
@@ -184,7 +183,8 @@ import UIKit
         let loading = try #require(tab.loading)
         #expect(loading.lines == [done("2/2 layers loaded."), done("2/2 thumbnails made."), running("Drawing the canvas…")])
         #expect(loading.isShowing)
-        let window = try window()
+        let window = try await window()
+        defer { window.isHidden = true }
         tab.canvas.frame = window.bounds
         window.addSubview(tab.canvas)
         tab.canvas.layoutIfNeeded()
@@ -234,9 +234,9 @@ import UIKit
         let broken = FileManager.default.temporaryDirectory.appending(path: "MobileLoadingTests \(UUID().uuidString) Broken.comp")
         try FileManager.default.createDirectory(at: broken, withIntermediateDirectories: false)
         defer { for file in [url, broken] { try? FileManager.default.removeItem(at: file) } }
-        let window = try window()
         let controller = EditorWindowController()
-        window.rootViewController = controller
+        let window = try await window(controller)
+        defer { window.isHidden = true }
         controller.loadViewIfNeeded()
         controller.view.frame = window.bounds
         controller.view.layoutIfNeeded()
@@ -305,9 +305,9 @@ import UIKit
     @Test func anOpeningTabDoesntCallItselfEmpty() async throws {
         let url = try savedProject()
         defer { try? FileManager.default.removeItem(at: url) }
-        let window = try window()
         let controller = EditorWindowController()
-        window.rootViewController = controller
+        let window = try await window(controller)
+        defer { window.isHidden = true }
         controller.loadViewIfNeeded()
         controller.view.frame = window.bounds
         controller.open([url])

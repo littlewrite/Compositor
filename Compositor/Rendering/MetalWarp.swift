@@ -24,6 +24,8 @@ import Metal
     private var offsets: MTLTexture?
     /// Liquify: the offsets in the dab's area as they were before the dab, which the dab reads.
     private var scratch: MTLTexture?
+    /// Sharpen: the area under the dab as it was before it.
+    private var blob: MTLTexture?
     private var buffer: MTLCommandBuffer?
     private var encoder: MTLComputeCommandEncoder?
     private var last: MTLCommandBuffer?
@@ -157,6 +159,23 @@ import Metal
         dispatch("warp_push", dab, textures: [offsets, scratch, original, texture], threads: 2 * r + 1)
     }
 
+    /// Sharpen: unsharp-masks what's under the brush, as `WarpStroke.sharpen`. The dab reads a copy of its area, so the
+    /// neighbors it compares against are the ones from before it.
+    func sharpen(at center: CGPoint, radius r: Int, diameter: CGFloat, hardness: CGFloat, strength: CGFloat) {
+        let cx = Int(center.x.rounded()), cy = Int(center.y.rounded())
+        let side = 2 * r + 3
+        guard let blob = texture(blob, side: side, format: .rgba32Float) else { return }
+        self.blob = blob
+        let empty = Dab(center: .zero, radius: 0, size: SIMD2(Int32(width), Int32(height)),
+                        origin: SIMD2(Int32(cx - r - 1), Int32(cy - r - 1)), area: SIMD2(Int32(side), Int32(side)),
+                        inverseRadius: 0, hardness: 0, keep: 0, move: .zero)
+        dispatch("warp_copy_clamped", empty, textures: [texture, blob], threads: side)
+        let dab = Dab(center: SIMD2(Int32(cx), Int32(cy)), radius: Int32(r), size: SIMD2(Int32(width), Int32(height)),
+                      origin: .zero, area: .zero, inverseRadius: 1 / Float(diameter / 2), hardness: Float(hardness),
+                      keep: Float(strength) * 2, move: .zero)
+        dispatch("warp_sharpen", dab, textures: [blob, texture], threads: 2 * r + 1)
+    }
+
     private func sized(width: Int, height: Int, format: MTLPixelFormat) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: width, height: height, mipmapped: false)
         descriptor.usage = [.shaderRead, .shaderWrite]
@@ -168,7 +187,7 @@ import Metal
         guard let device = MTLCreateSystemDefaultDevice(), let library = try? device.makeLibrary(source: source, options: nil)
         else { return nil }
         var result: [String: MTLComputePipelineState] = [:]
-        for name in ["warp_pick_up", "warp_smudge", "warp_copy", "warp_clear", "warp_push"] {
+        for name in ["warp_pick_up", "warp_smudge", "warp_copy", "warp_copy_clamped", "warp_clear", "warp_push", "warp_sharpen"] {
             guard let function = library.makeFunction(name: name),
                   let pipeline = try? device.makeComputePipelineState(function: function) else { return nil }
             result[name] = pipeline
@@ -225,6 +244,39 @@ import Metal
                           constant Dab &d [[buffer(0)]], uint2 gid [[thread_position_in_grid]]) {
         if (int(gid.x) >= d.area.x || int(gid.y) >= d.area.y) return;
         to.write(from.read(uint2(d.origin + int2(gid))), gid);
+    }
+
+    kernel void warp_copy_clamped(texture2d<float, access::read> from [[texture(0)]],
+                                  texture2d<float, access::write> to [[texture(1)]],
+                                  constant Dab &d [[buffer(0)]], uint2 gid [[thread_position_in_grid]]) {
+        if (int(gid.x) >= d.area.x || int(gid.y) >= d.area.y) return;
+        int2 p = clamp(d.origin + int2(gid), int2(0), d.size - 1);
+        to.write(from.read(uint2(p)), gid);
+    }
+
+    // Sharpen: the pixel plus its difference from the 3×3 average around it, laid down at the dab's weight. It reads
+    // the copy taken before the dab, so a pixel's neighbors are never ones this dab already sharpened.
+    kernel void warp_sharpen(texture2d<float, access::read> before [[texture(0)]],
+                             texture2d<float, access::read_write> canvas [[texture(1)]],
+                             constant Dab &d [[buffer(0)]], uint2 gid [[thread_position_in_grid]]) {
+        int side = 2 * d.radius + 1;
+        if (int(gid.x) >= side || int(gid.y) >= side) return;
+        int2 offset = int2(gid) - d.radius, p = d.center + offset;
+        if (p.x < 0 || p.y < 0 || p.x >= d.size.x || p.y >= d.size.y) return;
+        float w = weight(sqrt(float(offset.x * offset.x + offset.y * offset.y)) * d.inverseRadius, d.hardness);
+        if (w <= 0.0f) return;
+        int2 c = int2(gid) + int2(1);
+        int2 last = int2(before.get_width(), before.get_height()) - 1;
+        float4 sum = float4(0.0f);
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                sum += before.read(uint2(clamp(c + int2(dx, dy), int2(0), last)));
+        float scale = max(d.steps, 1.0f);
+        float4 value = before.read(uint2(c)) * scale;
+        float4 average = sum / 9.0f * scale;
+        float4 sharpened = value + (value - average) * d.keep * w;
+        sharpened = d.steps > 0.0f ? clamp(round(sharpened), 0.0f, d.steps) / d.steps : max(sharpened, 0.0f);
+        canvas.write(sharpened, uint2(p));
     }
 
     kernel void warp_clear(texture2d<float, access::write> to [[texture(0)]],

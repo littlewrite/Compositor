@@ -82,7 +82,7 @@ import UIKit
         session.applySelection(CGPath(rect: CGRect(x: 40, y: 40, width: 20, height: 20), transform: nil), mode: .replace, name: "Select")
 
         window.transformLayer(nil)
-        for _ in 0..<250 where session.transformEdit == nil { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5) { session.transformEdit != nil }
         var moved = try #require(session.transformEdit?.draft)
         moved.origin.x += 10
         session.previewTransform(moved)

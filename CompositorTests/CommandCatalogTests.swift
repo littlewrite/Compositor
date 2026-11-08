@@ -58,7 +58,8 @@ struct CommandCatalogTests {
         check([.fitCanvas, .actualPixels, .zoomIn, .zoomOut, .selectAll, .toggleFullscreen, .exportJPEG, .exportPNG,
                .exportAs, .canvasSize, .imageSize, .trim, .rotateCanvasClockwise, .rotateCanvasCounterclockwise,
                .flipCanvasHorizontal, .flipCanvasVertical, .gridSettings, .loadProofProfile,
-               .newAdjustmentLayer(.curves), .selectSubject], true, in: context)
+               .newAdjustmentLayer(.curves), .selectSubject,
+               .viewSwitch(.grid), .viewSwitch(.guides), .viewSwitch(.snap), .viewSwitch(.transformControls)], true, in: context)
         check([.cut, .copy, .copyMerged, .fillForeground, .clearSelectionPixels,
                .selectLayerPixels, .selectMaskBlackAreas, .expandSelection, .contractSelection,
                .featherSelection, .editAdjustment, .transform, .layerViaCopy,
@@ -77,6 +78,29 @@ struct CommandCatalogTests {
               false, in: context)
     }
 
+    /// Show Transform Controls is the Move tool's, as on both ends, while the other View switches need only a document.
+    @Test func theTransformControlsSwitchIsTheMoveTools() {
+        let session = sessionWithLayer()
+        var context = CommandContext(session: session)
+        context.hasDocument = true
+        check([.viewSwitch(.transformControls)], true, in: context)
+        session.tool = .brush
+        check([.viewSwitch(.transformControls)], false, in: context)
+        check([.viewSwitch(.grid), .viewSwitch(.guides)], true, in: context)
+        session.tool = .move
+        check([.viewSwitch(.transformControls)], true, in: context)
+    }
+
+    /// A View switch the platform doesn't offer yet is off, while its neighbors stay on.
+    @Test func aPlatformLeavesOutSwitchesItDoesntOffer() {
+        let context = CommandContext(session: sessionWithLayer())
+        var limited = context
+        limited.hasDocument = true
+        limited.canToggleView = { $0 != .rulers }
+        check([.viewSwitch(.grid)], true, in: limited)
+        check([.viewSwitch(.rulers)], false, in: limited)
+    }
+
     @Test func anOpenDialogNarrowsWhatApplies() {
         let session = sessionWithLayer()
         var context = CommandContext(session: session)
@@ -87,6 +111,17 @@ struct CommandCatalogTests {
                .showAbout, .gridSettings, .loadProofProfile, .colorRange], false, in: context)
         // A layer command that doesn't raise a dialog keeps working beside one.
         check([.groupLayers, .deleteLayer, .toggleLayerVisibility], true, in: context)
+    }
+
+    /// An editor holding the tab lets nothing show over the window, Save As included, though nothing is over it yet.
+    @Test func aHeldTabDimsWhatWouldShowOverIt() {
+        var context = CommandContext(session: sessionWithLayer())
+        context.hasFile = true
+        context.hasDocument = true
+        context.canStartProjectOperation = true
+        context.canSwitch = false
+        #expect(!CommandCatalog.isEnabled(.saveAs, in: context))
+        #expect(CommandCatalog.isEnabled(.save, in: context), "saving writes the project already open")
     }
 
     @Test func aPlatformWithoutAnEditorRefusesTheseKinds() {

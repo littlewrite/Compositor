@@ -277,7 +277,7 @@ struct DeepLayerTests {
 
     /// Liquify, Smudge and the Blur tool paint at 16 bits into a 16-bit layer, so where they go stays smooth: at 8 bits
     /// every pixel they touched would be a whole 8-bit step (and a smooth ramp would band).
-    @Test(arguments: [BlurToolMode.liquify, .smudge, .blur])
+    @Test(arguments: [BlurToolMode.liquify, .smudge, .blur, .sharpen])
     func blurToolModesKeepSixteenBits(mode: BlurToolMode) async throws {
         guard GPUCanvasRenderer.shared != nil || mode == .blur else { return }
         let (session, url) = try await importedSession()

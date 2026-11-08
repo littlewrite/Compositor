@@ -11,7 +11,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(2, condition)
     }
 
     /// The editor laid out at `width` × `height`: the layout follows the view's bounds, so no window is needed.
@@ -122,7 +122,12 @@ import UIKit
     @Test func whatTheWindowShowsStaysInsideIt() async throws {
         let (window, controller) = try await windowEditor(width: 390, height: 844)
         defer { window.isHidden = true }
-        func inside(_ shown: UIViewController, _ label: String) {
+        func inside(_ shown: UIViewController, _ label: String) async throws {
+            // A presentation gets its frame as it settles, a moment after it's asked for.
+            try await eventually {
+                shown.view.layoutIfNeeded()
+                return window.bounds.insetBy(dx: -1, dy: -1).contains(shown.view.convert(shown.view.bounds, to: window))
+            }
             shown.view.layoutIfNeeded()
             let frame = shown.view.convert(shown.view.bounds, to: window)
             #expect(window.bounds.insetBy(dx: -1, dy: -1).contains(frame), "\(label): \(frame) in \(window.bounds)")
@@ -133,7 +138,7 @@ import UIKit
         tools.sendActions(for: .primaryActionTriggered)
         try await eventually { controller.presentedViewController != nil }
         let grid = try #require(controller.presentedViewController)
-        inside(grid, "Tools")
+        try await inside(grid, "Tools")
         grid.dismiss(animated: false)
         try await eventually { controller.presentedViewController == nil }
 
@@ -148,7 +153,7 @@ import UIKit
         try await eventually { controller.presentedViewController is LevelsEditorController }
         let levels = try #require(controller.presentedViewController)
         #expect(levels.modalPresentationStyle == .pageSheet, "a sheet where a popover has no panel to point at")
-        inside(levels, "Levels")
+        try await inside(levels, "Levels")
         session.cancelLevels()
     }
 

@@ -56,23 +56,26 @@ struct CommandPaletteTests {
     @Test func realMenuBarRunsItsCommands() async throws {
         let bar = try #require(NSApp.mainMenu)
         func entries() -> [CommandPaletteEntry] { CommandPaletteMenu.entries(in: bar, skipping: CommandPaletteController.skipped) }
-        func gridState() -> NSControl.StateValue? {
-            bar.items.first { $0.title == "View" }?.submenu?.items.first { $0.title == "Pixel Grid (800% and above)" }?.state
+        func navigatorState() -> NSControl.StateValue? {
+            bar.items.first { $0.title == "View" }?.submenu?.items.first { $0.title == "Navigator (300% and above)" }?.state
         }
         let listed = entries()
         let titles = Set(listed.map(\.title))
         #expect(titles.contains("Filter › Gaussian Blur…") && !titles.contains("View › Search Commands…"))
-        // The test host has no document open, so Zoom In is disabled: listed, greyed.
+        // The test host has no document open, so Zoom In is disabled: listed, greyed. A View switch that needs a
+        // document is greyed too.
         let zoom = try #require(listed.first { $0.title == "View › Zoom In" })
         #expect(!zoom.isEnabled)
-        let grid = try #require(listed.first { $0.title == "View › Pixel Grid (800% and above)" })
-        let before = try #require(gridState())
-        grid.perform()
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(listed.first { $0.title == "View › Pixel Grid (800% and above)" }?.isEnabled == false)
+        // Navigator holds no document rule, so it can be run here and its checkmark followed, as the palette does.
+        let navigator = try #require(listed.first { $0.title == "View › Navigator (300% and above)" })
+        let before = try #require(navigatorState())
+        navigator.perform()
+        try await TestWait.until { navigatorState() != before }
         let after = entries() // Reading the menu again refreshes it, as opening the palette does.
-        #expect(gridState() != before, "the toggle's SwiftUI binding flipped")
-        #expect(after.first { $0.title == grid.title }?.isOn != grid.isOn, "and the palette's checkmark follows it")
-        grid.perform() // Put it back.
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(navigatorState() != before, "the toggle's SwiftUI binding flipped")
+        #expect(after.first { $0.title == navigator.title }?.isOn != navigator.isOn, "and the palette's checkmark follows it")
+        navigator.perform() // Put it back.
+        try await TestWait.until { navigatorState() == before }
     }
 }

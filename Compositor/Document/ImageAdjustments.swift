@@ -71,6 +71,69 @@ nonisolated struct ExposureSettings: Codable, Equatable, Sendable {
     }
 }
 
+/// Brightness/Contrast: `brightness` lifts or deepens every tone and `contrast` spreads them from
+/// the midtones, each −100…100. The same change runs on every channel; alpha is kept.
+nonisolated struct BrightnessContrastSettings: Codable, Equatable, Sendable {
+    static let range: ClosedRange<Double> = -100...100
+    var brightness: Double = 0
+    var contrast: Double = 0
+    var normalized: Self {
+        Self(brightness: ImageAdjustmentPixels.clamp(brightness, Self.range, 0),
+             contrast: ImageAdjustmentPixels.clamp(contrast, Self.range, 0))
+    }
+}
+
+/// Shadows/Highlights: opens up the dark or bright end of the picture without moving the middle, with
+/// a radius that decides how local the change is. Amounts are 0–100, the radius in pixels.
+nonisolated struct ShadowsHighlightsSettings: Codable, Equatable, Sendable {
+    static let range: ClosedRange<Double> = 0...100
+    static let radiusRange: ClosedRange<Double> = 0...100
+    /// Photoshop's defaults.
+    var shadows: Double = 35
+    var highlights: Double = 0
+    var radius: Double = 30
+    var normalized: Self {
+        Self(shadows: ImageAdjustmentPixels.clamp(shadows, Self.range, 35),
+             highlights: ImageAdjustmentPixels.clamp(highlights, Self.range, 0),
+             radius: ImageAdjustmentPixels.clamp(radius, Self.radiusRange, 30))
+    }
+    var isIdentity: Bool { shadows == 0 && highlights == 0 }
+}
+
+/// Channel Mixer: each output channel is a weighted sum of the input channels, in percent, plus a
+/// constant. Monochrome drives all three outputs from the red row.
+nonisolated struct ChannelMixerSettings: Codable, Equatable, Sendable {
+    static let amountRange: ClosedRange<Double> = -200...200
+    static let constantRange: ClosedRange<Double> = -100...100
+    var redFromRed: Double = 100
+    var redFromGreen: Double = 0
+    var redFromBlue: Double = 0
+    var redConstant: Double = 0
+    var greenFromRed: Double = 0
+    var greenFromGreen: Double = 100
+    var greenFromBlue: Double = 0
+    var greenConstant: Double = 0
+    var blueFromRed: Double = 0
+    var blueFromGreen: Double = 0
+    var blueFromBlue: Double = 100
+    var blueConstant: Double = 0
+    var monochrome = false
+    var normalized: Self {
+        var result = self
+        for key in [\Self.redFromRed, \.redFromGreen, \.redFromBlue, \.greenFromRed, \.greenFromGreen,
+                    \.greenFromBlue, \.blueFromRed, \.blueFromGreen, \.blueFromBlue] {
+            result[keyPath: key] = ImageAdjustmentPixels.clamp(result[keyPath: key], Self.amountRange, 0)
+        }
+        for key in [\Self.redConstant, \.greenConstant, \.blueConstant] {
+            result[keyPath: key] = ImageAdjustmentPixels.clamp(result[keyPath: key], Self.constantRange, 0)
+        }
+        return result
+    }
+    var isIdentity: Bool {
+        self.normalized == Self()
+    }
+}
+
 /// Gradient Map: each pixel's brightness picks a color between `shadows` and `highlights` (the other
 /// way round when reversed); alpha is kept.
 nonisolated struct GradientMapSettings: Codable, Equatable, Sendable {

@@ -17,7 +17,7 @@ extension UTType {
 
 nonisolated struct ProjectManifest: Codable, Sendable {
     /// The format version new saves write.
-    static let current = 21
+    static let current = 22
     /// Every version `load` accepts: each one a release has written (1 through `current`), and 27 from the
     /// GIF branch's own builds. Leaving out 15 and 16 once locked out projects saved by 1.5.4 and 1.5.5.
     /// The package-header and manifest checks both read this, so they can't drift apart when `current` is bumped.
@@ -59,8 +59,35 @@ nonisolated struct ProjectLayerRecord: Codable, Sendable {
     /// The stroke and drop shadow drawn around the layer.
     var effects: LayerEffects? = nil
     var text: LayerTextStyle? = nil
+    /// How a Solid Color or Gradient fill layer is filled. Missing before version 22.
+    var fill: ProjectFillRecord? = nil
     /// The embedded animation and masks scoped to individual frames. Missing before version 27.
     var gif: ProjectGIFRecord? = nil
+}
+
+nonisolated struct ProjectFillRecord: Codable, Sendable {
+    /// A Solid Color fill's color.
+    var color: PaletteColor? = nil
+    /// A Gradient fill's gradient.
+    var gradient: GradientFillSettings? = nil
+
+    init(color: PaletteColor? = nil, gradient: GradientFillSettings? = nil) {
+        self.color = color
+        self.gradient = gradient
+    }
+
+    init(content: FillContent) {
+        switch content {
+        case .solid(let color): self.init(color: color)
+        case .gradient(let gradient): self.init(gradient: gradient)
+        }
+    }
+
+    var content: FillContent? {
+        if let gradient { return .gradient(gradient) }
+        if let color { return .solid(color) }
+        return nil
+    }
 }
 
 nonisolated struct ProjectGIFRecord: Codable, Sendable {
@@ -638,6 +665,15 @@ actor ProjectStore {
                       text.colorRuns == nil || manifest.version >= 10,
                       text.fontRuns == nil || manifest.version >= 11,
                       layer.imageFile != nil, layer.isGroup != true, layer.adjustment == nil else { throw ProjectError.invalid }
+            }
+            if let fill = layer.fill {
+                // Fill layers arrived in version 22, hold no other kind of content, and are filled one way.
+                guard manifest.version >= 22, layer.imageFile != nil, layer.isGroup != true,
+                      layer.adjustment == nil, layer.text == nil, layer.shape == nil,
+                      (fill.color == nil) != (fill.gradient == nil),
+                      fill.color.map({ [$0.red, $0.green, $0.blue].allSatisfy { $0.isFinite && (0...1).contains($0) } }) ?? true,
+                      fill.gradient?.isValid ?? true
+                else { throw ProjectError.invalid }
             }
             if let adjustment = layer.adjustment {
                 guard manifest.version >= 7, layer.isGroup != true, layer.imageFile == nil, adjustment.isValid else { throw ProjectError.invalid }

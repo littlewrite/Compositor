@@ -76,6 +76,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             keyCommand(.copy, "Copy", #selector(UIResponderStandardEditActions.copy(_:))),
             keyCommand(.copyMerged, "Copy Merged", #selector(Window.copyMerged(_:))),
             keyCommand(.paste, "Paste", #selector(UIResponderStandardEditActions.paste(_:))),
+            keyCommand(.pasteInto, "Paste Into", #selector(Window.pasteInto(_:))),
         ])
         builder.replace(menu: .standardEdit, with: pasteboardMenu)
         services.commands.register(pasteboardMenu.children, path: "Edit")
@@ -103,6 +104,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             UIMenu(options: .displayInline, children: [
                 UICommand(title: "Expand…".localized, action: #selector(Window.expandSelection(_:))),
                 UICommand(title: "Contract…".localized, action: #selector(Window.contractSelection(_:))),
+                UICommand(title: "Border…".localized, action: #selector(Window.borderSelection(_:))),
                 UICommand(title: "Feather…".localized, action: #selector(Window.featherSelection(_:))),
             ]),
         ]
@@ -114,8 +116,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             UICommand(title: "Curves…".localized, action: #selector(Window.curves(_:))),
             keyCommand(.levels, "Levels…", #selector(Window.levels(_:))),
             keyCommand(.hueSaturation, "Hue/Saturation…", #selector(Window.hueSaturation(_:))),
-        ] + [FilterKind.blackWhite, .colorBalance, .exposure, .gradientMap, .grain].map { kind in
+        ] + FilterKind.imageMenuAdjustments.map { kind in
             UICommand(title: kind.displayName + "…", action: #selector(Window.applyFilter(_:)), propertyList: kind.rawValue)
+        } + FilterKind.imageMenuCommands.map { kind in
+            UICommand(title: kind.displayName, action: #selector(Window.applyImageCommand(_:)), propertyList: kind.rawValue)
         } + [
             keyCommand(.invertPixels, "Invert", #selector(Window.invertPixels(_:))),
             UIMenu(options: .displayInline, children: [
@@ -162,6 +166,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             UIMenu(options: .displayInline, children: [
                 keyCommand(.transform, "Transform Layer", #selector(Window.transformLayer(_:))),
                 keyCommand(.layerViaCopy, "Duplicate Layer", #selector(Window.layerViaCopy(_:))),
+                keyCommand(.layerViaCut, "Layer via Cut", #selector(Window.layerViaCut(_:))),
             ]),
             UIMenu(options: .displayInline, children: [
                 keyCommand(.toggleClipping, "Create Clipping Mask", #selector(Window.toggleClippingMask(_:))),
@@ -171,6 +176,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 keyCommand(.ungroupLayers, "Ungroup Layers", #selector(Window.ungroupLayers(_:))),
                 UICommand(title: "Move Out of Folder".localized, action: #selector(Window.moveOutOfFolder(_:))),
                 keyCommand(.newBlankLayer, "New Blank Layer", #selector(Window.newBlankLayer(_:))),
+                UICommand(title: "New Color Fill Layer".localized, action: #selector(Window.newFillLayer(_:))),
+                UICommand(title: "New Gradient Fill Layer".localized, action: #selector(Window.newGradientFillLayer(_:))),
                 UICommand(title: "Rename Layer…".localized, action: #selector(Window.renameLayer(_:))),
                 UICommand(title: "Hide Layer".localized, action: #selector(Window.toggleLayerVisibility(_:))),
             ]),
@@ -178,6 +185,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 keyCommand(.moveLayerUp, "Move Layer Up", #selector(Window.moveLayer(_:)), 1),
                 keyCommand(.moveLayerDown, "Move Layer Down", #selector(Window.moveLayer(_:)), -1),
                 keyCommand(.mergeLayers, "Merge Down", #selector(Window.mergeLayers(_:))),
+                keyCommand(.mergeVisibleLayers, "Merge Visible", #selector(Window.mergeVisibleLayers(_:))),
+                UICommand(title: "Flatten Image".localized, action: #selector(Window.flattenImage(_:))),
+                UICommand(title: "Rasterize Layer".localized, action: #selector(Window.rasterizeLayer(_:))),
             ]),
             UIMenu(options: .displayInline, children: [
                 UICommand(title: "Flip Layer Horizontal".localized, action: #selector(Window.flipLayers(_:)), propertyList: true),
@@ -195,7 +205,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         services.commands.register(closeElements, path: "File")
         builder.replace(menu: .close, with: UIMenu(options: .displayInline, children: closeElements))
         // The Mac's View menu. The switches it doesn't act on yet are dimmed by the window.
-        func toggle(_ title: String, _ viewSwitch: Window.ViewSwitch, _ input: String? = nil,
+        func toggle(_ title: String, _ viewSwitch: ViewSwitch, _ input: String? = nil,
                     _ flags: UIKeyModifierFlags = .command) -> UICommand {
             if let input {
                 return UIKeyCommand(title: title, action: #selector(Window.toggleView(_:)), input: input, modifierFlags: flags,

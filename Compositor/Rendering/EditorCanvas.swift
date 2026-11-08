@@ -1988,6 +1988,11 @@ final class CanvasView: NSView {
             synchronizeDisplay()
             return
         }
+        if session.quickSelectionStroke != nil, let document = session.document {
+            session.continueQuickSelection(at: session.viewport.documentPoint(from: point, documentSize: document.size))
+            synchronizeDisplay()
+            return
+        }
         if session.tool.isSelectionTool, lastDragPoint == nil, let draft = session.lassoDraft, let document = session.document {
             let pixel = session.viewport.documentPoint(from: point, documentSize: document.size)
             switch draft.kind {
@@ -2233,6 +2238,11 @@ final class CanvasView: NSView {
             synchronizeDisplay()
             refreshLassoCursor()
         }
+        if session.quickSelectionStroke != nil {
+            session.finishQuickSelection()
+            synchronizeDisplay()
+            refreshLassoCursor()
+        }
         if session.tool.isSelectionTool, let kind = session.lassoDraft?.kind, kind != .polygonal {
             session.finishLasso()
             synchronizeDisplay()
@@ -2293,6 +2303,11 @@ final class CanvasView: NSView {
                 session.updateLevels(edit.settings, preview: !edit.preview); return
             }
             if event.keyCode != 49 { super.keyDown(with: event); return }
+        }
+        if session.quickSelectionStroke != nil, event.keyCode == 53 {
+            session.cancelQuickSelection()
+            synchronizeDisplay()
+            return
         }
         if session.brushStroke != nil || session.warpStroke != nil {
             if event.keyCode == 53 && !session.isProjectBusy { session.cancelBrush(); synchronizeDisplay() }
@@ -2417,6 +2432,7 @@ final class CanvasView: NSView {
         gradientDrag = nil
         session.cancelShape()
         if let kind = session.lassoDraft?.kind, kind != .polygonal { session.cancelLasso() }
+        session.cancelQuickSelection()
         if selectionDragStart != nil { selectionDragStart = nil; session.endSelectionMove() }
         if pixelDragStart != nil { pixelDragStart = nil; session.cancelPixelMove() }
         if let drag = transformDrag {
@@ -2537,6 +2553,12 @@ final class CanvasView: NSView {
                 return
             }
             let mode = session.selectionMode(shift: event.modifierFlags.contains(.shift), option: event.modifierFlags.contains(.option))
+            // Quick Selection paints a selection, so it comes before moving one that is already there.
+            if session.tool == .wand, session.wandMode == .quick {
+                session.beginQuickSelection(at: pixel, mode: mode)
+                synchronizeDisplay()
+                return
+            }
             // In New mode, dragging inside the selection moves its outline instead of drawing.
             if mode == .replace, session.canMoveSelection(at: pixel), session.beginSelectionMove() {
                 selectionDragStart = pixel

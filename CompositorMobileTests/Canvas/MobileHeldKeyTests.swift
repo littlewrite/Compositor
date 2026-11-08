@@ -11,7 +11,7 @@ import UIKit
     private func window(_ tool: NavigationTool) async throws -> (controller: EditorWindowController, tab: EditorTab, window: UIWindow) {
         let controller = EditorWindowController()
         let window = try await TestHostWindow.show(controller, toolbar: false)
-        for _ in 0..<250 where !controller.isFirstResponder { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5) { controller.isFirstResponder }
         let tab = try #require(controller.activeTab)
         let session = tab.session
         session.createNewProject(width: 400, height: 300)

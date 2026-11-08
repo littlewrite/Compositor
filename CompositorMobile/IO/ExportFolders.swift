@@ -1,8 +1,8 @@
 import Foundation
 
 /// The folders exports write their files to, for the share sheet to offer, in the app's temporary folder: one for each
-/// file, so that exports from several windows, of projects of the same name, never write over one another's file, nor
-/// one finishing late over a file still offered. A folder goes once its file's share sheet is done, as the next export
+/// export, so that exports from several windows, of projects of the same name, never write over one another's files, nor
+/// one finishing late over a file still offered. A folder goes once its files' share sheet is done, as the next export
 /// writes its own; any left from before go then too.
 enum ExportFolders {
     /// Where the folders are.
@@ -13,14 +13,23 @@ enum ExportFolders {
     /// `data` as a file named `name`, in a folder of its own, which is offered from then on. The folders whose files are
     /// no longer offered are taken away first.
     static func write(_ data: Data, named name: String) throws -> URL {
+        try write([(name, data)])[0]
+    }
+
+    /// Each of `files` as a file of its name, together in a folder of their own, which is offered from then on, as
+    /// `write(_:named:)` writes one.
+    static func write(_ files: [(name: String, data: Data)]) throws -> [URL] {
         let folders = (try? FileManager.default.contentsOfDirectory(atPath: root.path(percentEncoded: false))) ?? []
         for old in folders where !offered.contains(old) { try? FileManager.default.removeItem(at: root.appending(path: old)) }
         let folder = root.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appending(path: name)
-        try Timing.measure("Write export", Timing.bytes(data.count)) { try data.write(to: url, options: .atomic) }
+        let urls = try files.map { file in
+            let url = folder.appending(path: file.name)
+            try Timing.measure("Write export", Timing.bytes(file.data.count)) { try file.data.write(to: url, options: .atomic) }
+            return url
+        }
         offered.insert(folder.lastPathComponent)
-        return url
+        return urls
     }
 
     /// `file` is no longer offered: its folder goes as the next export writes its file.

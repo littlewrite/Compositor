@@ -224,6 +224,27 @@ extension ImageLayer {
     }
 }
 
+extension EditorSession {
+    /// A live type, shape or fill layer can be rasterized: its pixels are already drawn, so it only stops being
+    /// editable text, a shape or a fill.
+    var canRasterizeLayer: Bool {
+        guard canEditLayers, let layer = activeLayer, !layer.isGroup else { return false }
+        return layer.liveText != nil || layer.liveShape != nil || layer.liveFill != nil
+    }
+
+    func rasterizeLayer() {
+        commitTransform()
+        guard canRasterizeLayer, let document,
+              let index = document.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
+        finishHeldDrags()
+        beginEdit("Rasterize Layer")
+        self.document?.layers[index].text = nil
+        self.document?.layers[index].shape = nil
+        self.document?.layers[index].fill = nil
+        endEdit()
+    }
+}
+
 struct TextDraft: Identifiable {
     let id = UUID()
     let documentID: UUID

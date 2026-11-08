@@ -23,7 +23,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// A color picked from the image selects the pixels near it; OK keeps that selection as one step to undo.

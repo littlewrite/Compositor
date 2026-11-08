@@ -45,7 +45,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// Layer `layer`'s row in the Layers panel, as it shows now, laid out.
@@ -118,9 +118,7 @@ import UIKit
 
     /// Whether the window asks for a new name for a layer, a moment after the double tap.
     private func asksForAName(_ controller: EditorWindowController) async throws -> Bool {
-        for _ in 0..<25 where (controller.presentedViewController as? UIAlertController)?.title != "Rename Layer" {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        try await TestWait.until(0.5) { (controller.presentedViewController as? UIAlertController)?.title == "Rename Layer" }
         return (controller.presentedViewController as? UIAlertController)?.title == "Rename Layer"
     }
 
@@ -344,5 +342,94 @@ import UIKit
         #expect(session.textDraft?.layerID == text)
         #expect(try await !asksForAName(controller))
         session.cancelText()
+    }
+
+    /// The row menu converts the layer's depth as the Mac's does: an 8-bit layer to 16-bit and back, each change made
+    /// to the layer and offered in the menu in place of the other.
+    @Test func theRowMenuConvertsTheLayersDepth() throws {
+        let (controller, session) = try shown()
+        let layer = try #require(session.activeLayerID)
+        let panel = try #require(views(LayersPanelView.self, in: controller.view).first)
+        func actions() -> [String: UIAction] {
+            Dictionary(uniqueKeysWithValues: panel.menu(for: layer, in: session).children
+                .compactMap { ($0 as? UIMenu)?.children }.flatMap { $0 }
+                .compactMap { $0 as? UIAction }.map { ($0.title, $0) })
+        }
+        let toSixteen = try #require(actions()["Convert to 16-Bit"])
+        #expect(!toSixteen.attributes.contains(.disabled))
+        toSixteen.performWithSender(nil, target: nil)
+        #expect(session.activeLayer?.asset?.deep != nil)
+
+        let toEight = try #require(actions()["Convert to 8-Bit"])
+        #expect(!toEight.attributes.contains(.disabled))
+        toEight.performWithSender(nil, target: nil)
+        #expect(session.activeLayer?.asset?.deep == nil)
+    }
+
+    /// The header's magnifier shows a field under the layer count, and the panel narrows to the layers matching what's
+    /// typed, as the Mac's does; putting the field away shows them all again.
+    @Test func theMagnifierSearchesTheLayers() async throws {
+        let (controller, session) = try shown()
+        let gray = try #require(session.activeLayerID)
+        session.renameLayer(gray, to: "Gray")
+        session.addBlankLayer()
+        let blue = try #require(session.activeLayerID)
+        session.renameLayer(blue, to: "Blue")
+        // The blank layer the project started with, under them both.
+        let base = try #require(session.document?.layers.first?.id)
+        let panel = try #require(views(LayersPanelView.self, in: controller.view).first)
+        let list = try #require(views(UICollectionView.self, in: panel).first { $0.accessibilityIdentifier == "layersList" })
+        func shownCount() -> Int {
+            panel.updatePropertiesIfNeeded()
+            panel.layoutIfNeeded()
+            return list.numberOfItems(inSection: 0)
+        }
+        #expect(shownCount() == 3)
+        #expect(session.filteredLayerRows.map(\.layer.id) == [blue, gray, base])
+        let searchButton = try #require(views(UIButton.self, in: panel).first { $0.accessibilityLabel == "Search layers" })
+        #expect(!views(UISearchTextField.self, in: panel).contains { !$0.isHidden })
+        searchButton.sendActions(for: .primaryActionTriggered)
+        let field = try #require(views(UISearchTextField.self, in: panel).first { !$0.isHidden })
+        field.text = "blu"
+        field.sendActions(for: .editingChanged)
+        #expect(session.layerSearchText == "blu")
+        #expect(shownCount() == 1)
+        #expect(session.filteredLayerRows.map(\.layer.id) == [blue])
+
+        searchButton.sendActions(for: .primaryActionTriggered)
+        #expect(session.layerSearchText.isEmpty)
+        #expect(shownCount() == 3)
+    }
+
+    /// The header's filter button lists the kinds the panel narrows to, as the Mac's does, checked while on; choosing
+    /// one again takes it off.
+    @Test func theFilterButtonNarrowsToKinds() throws {
+        let (controller, session) = try shown()
+        session.addBlankLayer()
+        let panel = try #require(views(LayersPanelView.self, in: controller.view).first)
+        let list = try #require(views(UICollectionView.self, in: panel).first { $0.accessibilityIdentifier == "layersList" })
+        func shownCount() -> Int {
+            panel.updatePropertiesIfNeeded()
+            panel.layoutIfNeeded()
+            return list.numberOfItems(inSection: 0)
+        }
+        let filter = try #require(views(UIButton.self, in: panel).first { $0.accessibilityLabel == "Filter layers by kind" })
+        func item(_ title: String) throws -> UIAction {
+            panel.updatePropertiesIfNeeded()
+            return try #require(filter.menu?.children.compactMap { $0 as? UIAction }.first { $0.title == title })
+        }
+        #expect(shownCount() == 3)
+        try item("Text").performWithSender(nil, target: nil)
+        #expect(session.layerTypeFilter == [.text])
+        #expect(shownCount() == 0, "the project's layers are images")
+        try item("Image").performWithSender(nil, target: nil)
+        #expect(session.layerTypeFilter == [.text, .image])
+        #expect(shownCount() == 3)
+        try item("Text").performWithSender(nil, target: nil)
+        #expect(session.layerTypeFilter == [.image])
+        #expect(shownCount() == 3)
+        try item("Image").performWithSender(nil, target: nil)
+        #expect(session.layerTypeFilter.isEmpty)
+        #expect(shownCount() == 3)
     }
 }

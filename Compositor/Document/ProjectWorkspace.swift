@@ -10,10 +10,10 @@ final class ProjectTab: Identifiable {
     /// Shown until the project is saved: Untitled, the opened file's name, or a Photoshop artboard's.
     var defaultName: String
     var title: String { session.projectURL?.deletingPathExtension().lastPathComponent ?? defaultName }
-    init(name: String) {
+    init(name: String, services: ProjectServices = .shared) {
         defaultName = name
         session = EditorSession()
-        controller = ProjectController(session: session)
+        controller = ProjectController(session: session, services: services)
     }
 }
 
@@ -21,6 +21,8 @@ final class ProjectTab: Identifiable {
 final class ProjectWorkspace {
     private(set) var tabs: [ProjectTab] = []
     private(set) var selectedID: UUID
+    /// The file work every tab of this workspace goes through, made once by the app.
+    let services: ProjectServices
     var isManaging = false
     @ObservationIgnored weak var window: NSWindow?
     var current: ProjectTab { tabs.first { $0.id == selectedID } ?? tabs[0] }
@@ -29,8 +31,9 @@ final class ProjectWorkspace {
         return !isManaging && s.canStartProjectOperation && s.hueSaturation == nil && s.filterEdit == nil
             && s.gradientEdit == nil && s.pixelMove == nil && s.colorPicker == nil
     }
-    init() {
-        let first = ProjectTab(name: "Untitled".localized)
+    init(services: ProjectServices = .shared) {
+        self.services = services
+        let first = ProjectTab(name: "Untitled".localized, services: services)
         defer { attach(first) }
         first.session.skipsInitialClipboardCanvasSize = true
         tabs = [first]; selectedID = first.id
@@ -47,7 +50,7 @@ final class ProjectWorkspace {
     @discardableResult
     func addTab(reuseEmpty: Bool = true) -> ProjectTab {
         if reuseEmpty, tabs.count == 1, current.session.document == nil { return current }
-        let tab = ProjectTab(name: freeUntitledName)
+        let tab = ProjectTab(name: freeUntitledName, services: services)
         tab.controller.workspace = self; tab.controller.window = window
         attach(tab)
         tabs.append(tab); selectedID = tab.id
@@ -63,7 +66,7 @@ final class ProjectWorkspace {
                 target = tab
                 target.defaultName = name
             } else {
-                target = ProjectTab(name: name)
+                target = ProjectTab(name: name, services: services)
                 target.controller.workspace = self; target.controller.window = window
                 attach(target)
                 tabs.append(target)
@@ -118,7 +121,7 @@ final class ProjectWorkspace {
             selectedID = existing.id; return true
         }
         // Load into an unattached session, so a failed open never leaves a broken tab.
-        let tab = ProjectTab(name: url.deletingPathExtension().lastPathComponent)
+        let tab = ProjectTab(name: url.deletingPathExtension().lastPathComponent, services: services)
         attach(tab)
         tab.controller.window = window
         guard await tab.controller.open(url) else { return false }
@@ -304,7 +307,7 @@ final class ProjectWorkspace {
                 mask?.placement?.origin.x += center.x-anchor.x; mask?.placement?.origin.y += center.y-anchor.y
                 return ImageLayer(id: mapping[layer.id]!, asset: layer.asset, name: layer.name, isVisible: layer.isVisible,
                     transform: transform, parentID: layer.parentID.flatMap { mapping[$0] }, isGroup: layer.isGroup,
-                    opacity: layer.opacity, blendMode: layer.blendMode, mask: mask, maskSourceID: layer.maskSourceID.flatMap { mapping[$0] }, adjustment: layer.adjustment, shape: layer.shape, effects: layer.effects, text: layer.text,
+                    opacity: layer.opacity, blendMode: layer.blendMode, mask: mask, maskSourceID: layer.maskSourceID.flatMap { mapping[$0] }, adjustment: layer.adjustment, shape: layer.shape, effects: layer.effects, text: layer.text, fill: layer.liveFill,
                     gifAnimation: layer.gifAnimation)
             }
             target.session.isProjectBusy = false

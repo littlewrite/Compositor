@@ -15,7 +15,7 @@ import UIKit
 
     /// Waits up to a few seconds for `condition`, as the window's own tasks finish.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// A 200 × 100 project of one gray layer, in `session`.
@@ -449,7 +449,8 @@ import UIKit
         other.open([url])
         #expect(other.tabs.count == 1 && other.activeTab?.isEmpty == true)
         #expect(controller.activeTab === tab && controller.presentedViewController === editor && editor.session === tab.session)
-        try await Task.sleep(for: .milliseconds(300))
+        // The other window's project lands without this one's editor giving way.
+        try await eventually { other.activeTab?.document != nil }
         #expect(controller.activeTab === tab && controller.presentedViewController === editor)
 
         try await end(editor, ok: true, over: controller)
@@ -620,7 +621,8 @@ import UIKit
         defer { remove(other) }
         controller.open([other])
         #expect(controller.tabs.last?.url == other)
-        try await Task.sleep(for: .milliseconds(300))
+        // Once the project is in, it stays behind the editor, as it came in.
+        try await eventually { controller.tabs.last?.document != nil }
         #expect(controller.activeTab === tab && controller.presentedViewController === editor)
 
         try tap(ok: false, in: editor)

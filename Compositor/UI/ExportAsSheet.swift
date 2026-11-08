@@ -241,7 +241,7 @@ struct ExportAsSheet: View {
                 Text(format == .channelPack ? "Each channel from a layer, read as grayscale · PNG"
                      : format == .gif ? "Up to 256 colors · sRGB" : format == .exr ? "Brighter than white kept · Transparency kept"
                      : takesCMYK && cmyk ? "CMYK – \(profile?.name ?? "No profile")"
-                     : format == .png || format == .tiff ? "Transparency kept · sRGB" : "sRGB")
+                     : format == .png || format == .tiff || format == .psd ? "Transparency kept · sRGB" : "sRGB")
                     .foregroundStyle(.secondary)
                 Spacer()
                 if isReady, let result {
@@ -325,6 +325,8 @@ struct ExportAsSheet: View {
                     } else {
                         preview = try await ImageExporter.shared.flattened(sized, over: background)
                     }
+                case .psd:
+                    (data, preview) = (try await ImageExporter.shared.psdData(sized), sized.image)
                 case .gif: return
                 }
                 try Task.checkCancellation()
@@ -394,7 +396,7 @@ struct ExportAsSheet: View {
         catch { self.error = error.localizedDescription }
     }
 
-    /// Animation formats, TIFF, PDF, and EXR with an HDR layer: a menu beside PNG and JPEG, blue with the chosen one's name while it's chosen,
+    /// Animation formats, TIFF, PDF, PSD and EXR with an HDR layer: a menu beside PNG and JPEG, blue with the chosen one's name while it's chosen,
     /// as the selected segment beside it would be.
     @ViewBuilder private var moreFormats: some View {
         let others = formats.filter { $0 != .png && $0 != .jpeg }
@@ -406,7 +408,7 @@ struct ExportAsSheet: View {
             .pickerStyle(.inline).labelsHidden()
         }
         .menuStyle(.button).fixedSize()
-        .help("Other formats: TIFF, PDF and GIF\(others.contains(.exr) ? ", EXR to keep light brighter than white" : ""), and Channel Pack for game textures")
+        .help("Other formats: TIFF, PDF, PSD and GIF\(others.contains(.exr) ? ", EXR to keep light brighter than white" : ""), and Channel Pack for game textures")
         if chosen { menu.buttonStyle(.borderedProminent) } else { menu.buttonStyle(.bordered) }
     }
 

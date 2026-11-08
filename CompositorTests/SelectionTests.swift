@@ -384,6 +384,19 @@ struct SelectionTests {
         }
     }
 
+    @Test func borderTurnsTheOutlineIntoABand() throws {
+        let session = makeSession()
+        lasso(session, square(40, 40, 20))
+        session.borderSelection(by: 4)
+        #expect(session.history.undoName == "Border Selection")
+        let box = try #require(session.selection).path.boundingBoxOfPath
+        #expect(abs(box.minX - 36) < 0.01 && abs(box.maxX - 64) < 0.01, "the band reaches 4 px each way: \(box)")
+        #expect(try coverage(session, 38, 50) == 255, "inside the band")
+        #expect(try coverage(session, 62, 50) == 255, "outside the band")
+        #expect(try coverage(session, 50, 50) == 0, "the middle is hollow")
+        #expect(try coverage(session, 34, 50) == 0, "and the band stops")
+    }
+
     @Test func expandStaysOnCanvasAndContractCanEmptyTheSelection() throws {
         let session = makeSession()
         session.selectAll()

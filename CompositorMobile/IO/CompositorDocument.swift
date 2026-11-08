@@ -12,6 +12,8 @@ nonisolated final class CompositorDocument: UIDocument, @unchecked Sendable {
     let session: EditorSession
     /// The window's canvas renderer, which takes the textures an opening project makes, as it made them.
     private let renderer: GPUCanvasRenderer?
+    /// The exporter that makes the package's preview, from the window's services.
+    private let exporter: ImageExporter
     /// A package just read, waiting for the main actor to put it into the editor.
     private let readSnapshot = Mutex<ProjectSnapshot?>(nil)
     /// Why the last open or save failed, for saying so.
@@ -38,9 +40,10 @@ nonisolated final class CompositorDocument: UIDocument, @unchecked Sendable {
     private let reading: Mutex<(@Sendable (ProjectStore.ReadProgress) -> Void)?>
 
     init(fileURL url: URL, session: EditorSession, renderer: GPUCanvasRenderer? = nil,
-         reading: (@Sendable (ProjectStore.ReadProgress) -> Void)? = nil) {
+         exporter: ImageExporter = .shared, reading: (@Sendable (ProjectStore.ReadProgress) -> Void)? = nil) {
         self.session = session
         self.renderer = renderer
+        self.exporter = exporter
         self.reading = Mutex(reading)
         super.init(fileURL: url)
     }
@@ -92,8 +95,9 @@ nonisolated final class CompositorDocument: UIDocument, @unchecked Sendable {
     }
 
     /// A new project with what `session` already holds, written to `url` before anything else happens to it.
-    @MainActor static func create(at url: URL, with session: EditorSession, renderer: GPUCanvasRenderer? = nil) async throws -> CompositorDocument {
-        let document = CompositorDocument(fileURL: url, session: session, renderer: renderer)
+    @MainActor static func create(at url: URL, with session: EditorSession, renderer: GPUCanvasRenderer? = nil,
+                       exporter: ImageExporter = .shared) async throws -> CompositorDocument {
+        let document = CompositorDocument(fileURL: url, session: session, renderer: renderer, exporter: exporter)
         session.projectURL = url
         guard await document.save(to: url, for: .forCreating) else {
             session.projectURL = nil
@@ -220,19 +224,19 @@ nonisolated final class CompositorDocument: UIDocument, @unchecked Sendable {
     override func writeContents(_ contents: Any, to url: URL, for saveOperation: UIDocument.SaveOperation,
                                 originalContentsURL: URL?) throws {
         guard let snapshot = contents as? ProjectSnapshot else { throw ProjectError.invalid }
-        let package = try ProjectStore.package(for: snapshot, quickLook: Self.quickLookImages(snapshot), encoded: encoded)
+        let package = try ProjectStore.package(for: snapshot, quickLook: Self.quickLookImages(snapshot, exporter: exporter), encoded: encoded)
         try Timing.measure("Write package") { try package.write(to: url, options: [], originalContentsURL: originalContentsURL) }
     }
 
     /// The preview the Mac's Finder shows for the package. The exporter renders it on its own actor; the write is
     /// already on a background queue of UIDocument's, so it waits there for it.
-    private static func quickLookImages(_ snapshot: ProjectSnapshot) -> QuickLookImages? {
+    private static func quickLookImages(_ snapshot: ProjectSnapshot, exporter: ImageExporter) -> QuickLookImages? {
         final class Box: @unchecked Sendable { var images: QuickLookImages? }
         let box = Box(), done = DispatchSemaphore(value: 0)
         // At the save's own priority, which Task.currentPriority reads from the thread outside a task: waiting on a
         // semaphore raises nothing, as it has no owner.
         Task.detached(priority: Task.currentPriority) {
-            box.images = await ImageExporter.shared.quickLookImages(snapshot)
+            box.images = await exporter.quickLookImages(snapshot)
             done.signal()
         }
         done.wait()

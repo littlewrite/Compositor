@@ -209,6 +209,7 @@ nonisolated struct SelectionClip: @unchecked Sendable {
 /// whatever the click lands on. Tab switches between them, as with the Brush's Paint and Erase.
 nonisolated enum WandMode: String, CaseIterable, Sendable {
     case wand = "Wand"
+    case quick = "Quick"
     case object = "Object"
 }
 
@@ -475,7 +476,7 @@ extension EditorSession {
     var canModifySelection: Bool { selection?.isEmpty == false && canEditSelection && lassoDraft == nil }
 
     enum SelectionAmountOperation: String, CaseIterable {
-        case expand = "Expand", contract = "Contract", feather = "Feather"
+        case expand = "Expand", contract = "Contract", feather = "Feather", border = "Border"
     }
 
     /// Menu commands ask for an amount; the tool header applies its input directly.
@@ -497,6 +498,7 @@ extension EditorSession {
         case .expand: expandSelection(by: amount)
         case .contract: contractSelection(by: amount)
         case .feather: featherSelection(by: amount)
+        case .border: borderSelection(by: amount)
         }
     }
 
@@ -513,6 +515,17 @@ extension EditorSession {
         guard canModifySelection, let current = selection, amount > 0 else { return }
         setSelection(DocumentSelection(path: current.path, antialiased: current.antialiased,
                                        feather: min(250, current.feather + CGFloat(amount))), name: "Feather Selection")
+    }
+
+    /// Turns the outline into a band `amount` pixels wide, centered on it and clipped to the canvas, as
+    /// Select → Modify → Border does.
+    func borderSelection(by amount: Int) {
+        guard let document, let current = selection, canModifySelection, amount > 0, amount <= 500 else { return }
+        let canvas = CGPath(rect: CGRect(origin: .zero, size: document.size), transform: nil)
+        let band = current.path.copy(strokingWithWidth: CGFloat(amount) * 2, lineCap: .butt, lineJoin: .miter, miterLimit: 3)
+        setSelection(DocumentSelection(path: band.intersection(canvas, using: .winding).withoutSlivers,
+                                       antialiased: current.antialiased, feather: current.feather),
+                     name: "Border Selection")
     }
 
     private func resizeSelection(by delta: CGFloat, name: String) {

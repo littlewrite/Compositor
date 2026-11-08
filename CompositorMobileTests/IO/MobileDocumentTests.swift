@@ -49,7 +49,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// A rectangle with smooth corners, which format version 14 added, is saved through the document at the current
@@ -181,7 +181,7 @@ import UIKit
         let manifestURL = url.appending(path: "manifest.json")
         let manifest = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL)) as? [String: Any])
         #expect(manifest["version"] as? Int == ProjectManifest.current)
-        #expect(ProjectManifest.current == 21)
+        #expect(ProjectManifest.current == 22)
         let files = try FileManager.default.contentsOfDirectory(atPath: url.appending(path: "images").path)
         #expect(files.contains("\(gifID.uuidString).gif"))
         #expect(files.filter { $0.hasPrefix("\(gifID.uuidString).frame-") }.count == 2, "the edited frame and its copy: \(files)")

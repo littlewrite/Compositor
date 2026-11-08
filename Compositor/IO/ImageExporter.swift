@@ -17,7 +17,7 @@ nonisolated enum ExportError: LocalizedError {
 /// What File › Export As… writes.
 nonisolated enum ExportFormat: String, CaseIterable {
     // In the order Export As lists them: GIF after PDF, as fewer need it.
-    case png = "PNG", jpeg = "JPEG", tiff = "TIFF", pdf = "PDF", gif = "GIF", exr = "EXR"
+    case png = "PNG", jpeg = "JPEG", tiff = "TIFF", pdf = "PDF", psd = "Photoshop (PSD)", gif = "GIF", exr = "EXR"
     /// Layers packed into a PNG's red, green, blue and alpha, for game textures (see `ChannelPack`).
     case channelPack = "Channel Pack"
     var type: UTType {
@@ -27,6 +27,7 @@ nonisolated enum ExportFormat: String, CaseIterable {
         case .gif: .gif
         case .tiff: .tiff
         case .pdf: .pdf
+        case .psd: .photoshopImage
         case .exr: .openEXR
         }
     }
@@ -382,6 +383,19 @@ actor ImageExporter {
     func exportPDF(_ snapshot: ProjectSnapshot, to url: URL) throws {
         let data = try pdfData(snapshot)
         try write(data, to: url)
+    }
+
+    /// The flattened canvas as a Photoshop file, alpha kept.
+    func psdData(_ raster: ExportRaster) throws -> Data {
+        try PSDWriter.flattened(raster.image)
+    }
+
+    func psdData(_ snapshot: ProjectSnapshot) throws -> Data {
+        try psdData(render(snapshot))
+    }
+
+    func exportPSD(_ snapshot: ProjectSnapshot, to url: URL) throws {
+        try write(try psdData(snapshot), to: url)
     }
 
     func write(_ data: Data, to url: URL) throws {

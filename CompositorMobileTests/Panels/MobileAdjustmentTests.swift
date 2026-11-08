@@ -127,7 +127,7 @@ import UIKit
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// The editor and a 200 × 100 project of one gray layer without a window: the tests that only read an editor's
@@ -495,9 +495,11 @@ import UIKit
         try #require(editor.view.safeAreaInsets.top >= 13)
         let tall = editor.preferredContentSize.height
         window.frame.size.height = tall
-        try await Task.sleep(for: .milliseconds(100))
-        window.layoutIfNeeded()
-        editor.view.layoutIfNeeded()
+        try await TestWait.until(1) {
+            window.layoutIfNeeded()
+            editor.view.layoutIfNeeded()
+            return editor.view.bounds.height == tall
+        }
         try #require(editor.view.bounds.height == tall)
         let scroll = try #require(views(UIScrollView.self, in: editor.view).first)
         #expect(scroll.contentSize.height <= scroll.bounds.height + 0.5)

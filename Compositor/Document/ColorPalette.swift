@@ -5,7 +5,7 @@ import CoreGraphics
 import Foundation
 import Observation
 
-nonisolated struct PaletteColor: Equatable, Sendable {
+nonisolated struct PaletteColor: Equatable, Codable, Sendable {
     var red: CGFloat
     var green: CGFloat
     var blue: CGFloat

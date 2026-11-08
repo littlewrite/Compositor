@@ -9,17 +9,18 @@ import UIKit
 nonisolated enum Command: Hashable, Sendable {
     case newCanvas, openProject, openRecentProject, importFiles, save, saveAs
     case exportJPEG, exportPNG, exportAs, closeTab, duplicateProject, renameProject
-    case cut, copy, copyMerged, paste, fillForeground, fillBackground, clearSelectionPixels
+    case cut, copy, copyMerged, paste, pasteInto, fillForeground, fillBackground, clearSelectionPixels
     case searchCommands, toggleFullscreen, fitCanvas, actualPixels, zoomIn, zoomOut
     case selectAll, deselect, invertSelection, selectLayerPixels, selectSubject, colorRange, selectMaskBlackAreas
-    case expandSelection, contractSelection, featherSelection
+    case expandSelection, contractSelection, featherSelection, borderSelection
     case curves, levels, hueSaturation, invertPixels, lastFilter, filter(FilterKind)
     case canvasSize, imageSize, trim, rotateCanvasClockwise, rotateCanvasCounterclockwise
     case flipCanvasHorizontal, flipCanvasVertical
-    case newAdjustmentLayer(AdjustmentKind), editAdjustment, transform, layerViaCopy, toggleClipping
-    case groupLayers, ungroupLayers, moveOutOfFolder, newBlankLayer, renameLayer, toggleLayerVisibility
-    case moveLayerUp, moveLayerDown, mergeLayers, flipLayersHorizontal, flipLayersVertical, deleteLayer
+    case newAdjustmentLayer(AdjustmentKind), editAdjustment, transform, layerViaCopy, layerViaCut, toggleClipping
+    case groupLayers, ungroupLayers, moveOutOfFolder, newBlankLayer, newFillLayer, newGradientFillLayer, renameLayer, toggleLayerVisibility
+    case moveLayerUp, moveLayerDown, mergeLayers, mergeVisibleLayers, flattenImage, rasterizeLayer, flipLayersHorizontal, flipLayersVertical, deleteLayer
     case gridSettings, loadProofProfile, showAbout, clearRecentProjects, clearGuides
+    case viewSwitch(ViewSwitch)
 }
 
 /// What a command acts on, gathered by each window from its session and its own chrome. The two platforms fill the same
@@ -45,6 +46,8 @@ nonisolated enum Command: Hashable, Sendable {
     var canAddAdjustment: (AdjustmentKind) -> Bool = { _ in true }
     /// Whether this platform has an editor for the adjustment; one without can be added, not edited.
     var canEditAdjustment: (AdjustmentKind) -> Bool = { _ in true }
+    /// Whether this platform offers the View switch at all; the iOS app has some of the Mac's.
+    var canToggleView: (ViewSwitch) -> Bool = { _ in true }
     /// A layer copied onto the pasteboard is waiting.
     var canPasteLayers = false
 
@@ -77,6 +80,7 @@ extension Command {
         case .copy: MenuShortcut("c")
         case .copyMerged: MenuShortcut("c", 9)
         case .paste: MenuShortcut("v")
+        case .pasteInto: MenuShortcut("v", 9)
         case .fillForeground: MenuShortcut("\u{7f}", 2)
         case .fillBackground: MenuShortcut("\u{7f}")
         case .filter(.contentAwareFill): MenuShortcut("\u{7f}", 8)
@@ -96,6 +100,7 @@ extension Command {
         case .imageSize: MenuShortcut("i", 3)
         case .transform: MenuShortcut("t")
         case .layerViaCopy: MenuShortcut("j")
+        case .layerViaCut: MenuShortcut("j", 9)
         case .toggleClipping: MenuShortcut("g", 3)
         case .groupLayers: MenuShortcut("g")
         case .ungroupLayers: MenuShortcut("g", 9)
@@ -136,9 +141,9 @@ extension MenuShortcut {
             return context.canSwitch && context.canCloseTab
         case .save:
             return context.hasFile && context.canStartProjectOperation && !context.changedOnDisk
-        // Save As asks where the copy goes, which can't come over what's shown.
+        // Save As asks where the copy goes, which can't come over what's shown or an editor holding the tab.
         case .saveAs:
-            return context.hasFile && context.canStartProjectOperation && !context.changedOnDisk && context.isClear
+            return context.hasFile && context.canStartProjectOperation && !context.changedOnDisk && context.canSwitch
         case .duplicateProject:
             return context.hasFile && context.canStartProjectOperation && !context.changedOnDisk && context.canSwitch
         case .renameProject:
@@ -159,6 +164,8 @@ extension MenuShortcut {
             return session?.canCopyMerged ?? false
         case .paste:
             return context.canPasteLayers || (session?.canPaste ?? false)
+        case .pasteInto:
+            return session?.canPasteInto ?? false
         case .fillForeground, .fillBackground:
             return session?.canEditPixels ?? false
         case .clearSelectionPixels:
@@ -173,7 +180,7 @@ extension MenuShortcut {
             return session?.canSelectSubject ?? false
         case .colorRange:
             return (session?.canSelectColorRange ?? false) && context.isClear
-        case .expandSelection, .contractSelection, .featherSelection:
+        case .expandSelection, .contractSelection, .featherSelection, .borderSelection:
             return session?.canModifySelection ?? false
         case .curves, .levels:
             return (session?.canAdjustColors ?? false) && session?.hueSaturation == nil && context.isClear
@@ -200,9 +207,11 @@ extension MenuShortcut {
             return session.map { $0.canTransform || $0.canTransformSelection } ?? false
         case .layerViaCopy:
             return session.map { $0.canCopyPixels || ($0.selection == nil && $0.canEditLayers && $0.activeLayer != nil) } ?? false
+        case .layerViaCut:
+            return session?.canLayerViaCut ?? false
         case .toggleClipping:
             return session?.canToggleSelectedClipping ?? false
-        case .groupLayers, .newBlankLayer:
+        case .groupLayers, .newBlankLayer, .newFillLayer, .newGradientFillLayer:
             return session?.canEditLayers ?? false
         case .ungroupLayers:
             return session?.canUngroupLayers ?? false
@@ -218,12 +227,22 @@ extension MenuShortcut {
             return session?.canMoveActiveLayer(by: -1) ?? false
         case .mergeLayers:
             return session?.canMergeLayers ?? false
+        case .mergeVisibleLayers:
+            return session?.canMergeVisibleLayers ?? false
+        case .flattenImage:
+            return session?.canFlattenImage ?? false
+        case .rasterizeLayer:
+            return session?.canRasterizeLayer ?? false
         case .flipLayersHorizontal, .flipLayersVertical:
             return session?.canTransform ?? false
         case .gridSettings, .loadProofProfile:
             return context.hasDocument && context.isClear
         case .clearGuides:
             return session?.canClearGuides ?? false
+        // Show Transform Controls is the Move tool's, as on the Mac.
+        case .viewSwitch(let viewSwitch):
+            guard context.hasDocument, context.canToggleView(viewSwitch) else { return false }
+            return viewSwitch != .transformControls || session?.tool == .move
         }
     }
 }

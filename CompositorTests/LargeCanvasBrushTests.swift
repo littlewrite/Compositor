@@ -30,7 +30,7 @@ struct LargeCanvasBrushTests {
     }
 
     /// Committing a Smudge or Liquify lays a tip a little wider than the brush, which at the largest Size was refused.
-    @Test(arguments: [BlurToolMode.liquify, .smudge, .blur])
+    @Test(arguments: [BlurToolMode.liquify, .smudge, .blur, .sharpen])
     func largestBrushCommits(mode: BlurToolMode) throws {
         let side = 5000
         let session = try session(side: side)

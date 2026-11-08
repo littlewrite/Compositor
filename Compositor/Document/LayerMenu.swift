@@ -11,11 +11,8 @@ nonisolated enum LayerMenuCommand: Hashable, Sendable {
 }
 
 @MainActor enum LayerMenu {
-    /// What a platform's row menu does with a command. The Mac converts bit depth and exports a layer; the iOS app
-    /// lists both as the Mac does, dimmed where it has no way to carry them out.
+    /// What a platform's row menu does with a command.
     struct Capabilities {
-        var convertsDepth = true
-        var exportsLayers = true
         /// A pressed effect is what Delete removes, as the iOS app's rows select one.
         var deletesSelectedEffect = false
         var canEditAdjustment: (AdjustmentKind) -> Bool = { _ in true }
@@ -68,11 +65,11 @@ nonisolated enum LayerMenuCommand: Hashable, Sendable {
         let sixteen = session.canConvertToSixteenBit, eight = session.canConvertToEightBit
         if sixteen || !eight {
             arranging.append(Item(command: .convertToSixteenBit, title: "Convert to 16-Bit".localized,
-                                  isEnabled: capabilities.convertsDepth && sixteen))
+                                  isEnabled: sixteen))
         }
         if eight {
             arranging.append(Item(command: .convertToEightBit, title: "Convert to 8-Bit".localized,
-                                  isEnabled: capabilities.convertsDepth && eight))
+                                  isEnabled: eight))
         }
 
         let addMaskEnabled = session.canEditMask && mask == nil
@@ -92,11 +89,9 @@ nonisolated enum LayerMenuCommand: Hashable, Sendable {
 
         var sections = [Section(items: basics), Section(items: arranging), Section(items: masks),
                         Section(items: visibility)]
-        if capabilities.exportsLayers {
-            let title = (session.selectedLayerIDs.count > 1 ? "Export Layers as PNGs…" : "Export Layer as PNG…").localized
-            let canExport = session.canStartProjectOperation && layer != nil && session.exportsLayers != nil
-            sections.append(Section(items: [Item(command: .export, title: title, isEnabled: canExport)]))
-        }
+        let title = (session.selectedLayerIDs.count > 1 ? "Export Layers as PNGs…" : "Export Layer as PNG…").localized
+        let canExport = session.canStartProjectOperation && layer != nil && session.exportsLayers != nil
+        sections.append(Section(items: [Item(command: .export, title: title, isEnabled: canExport)]))
         return sections
     }
 
@@ -134,9 +129,9 @@ nonisolated enum LayerMenuCommand: Hashable, Sendable {
         case .merge:
             return session.canMergeLayers
         case .convertToSixteenBit:
-            return capabilities.convertsDepth && session.canConvertToSixteenBit
+            return session.canConvertToSixteenBit
         case .convertToEightBit:
-            return capabilities.convertsDepth && session.canConvertToEightBit
+            return session.canConvertToEightBit
         case .addMask, .addMaskRevealAll, .addMaskHideAll:
             return session.canEditMask && session.activeLayer?.mask == nil
         case .toggleMask, .deleteMask:

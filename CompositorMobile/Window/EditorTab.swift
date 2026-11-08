@@ -9,14 +9,18 @@ import UIKit
     private(set) var defaultName: String
     /// The window's GPU canvas renderer, which makes an opening project's textures.
     private let renderer: GPUCanvasRenderer?
+    /// The file work a tab's document saves and previews through, from the window's services.
+    private let exporter: ImageExporter
     private(set) var document: CompositorDocument?
     private(set) lazy var canvas = MobileCanvasView(session: session, renderer: renderer)
     /// Undo and Redo for the menu bar, the keyboard and the system's gestures, which ask the responder chain.
     private(set) lazy var undoManager = SessionUndoManager(session: session)
 
-    init(name: String = "Untitled".localized, renderer: GPUCanvasRenderer? = .shared) {
+    init(name: String = "Untitled".localized, renderer: GPUCanvasRenderer? = .shared,
+         exporter: ImageExporter = .shared) {
         defaultName = name
         self.renderer = renderer
+        self.exporter = exporter
     }
 
     /// The project being opened into the tab, while it loads.
@@ -58,7 +62,8 @@ import UIKit
                 if let failure, !(failure is CancellationError) { failed(failure) }
             }
             let opening = Timing.begin("Open project")
-            let document = CompositorDocument(fileURL: url, session: session, renderer: renderer, reading: { loading.read($0) })
+            let document = CompositorDocument(fileURL: url, session: session, renderer: renderer, exporter: exporter,
+                                             reading: { loading.read($0) })
             let handed: Int
             do {
                 handed = try await document.openDocument { snapshot in
@@ -102,7 +107,7 @@ import UIKit
         guard !isClosed, document == nil, session.document != nil else { return }
         session.history.reset()
         let created = try await CompositorDocument.create(at: CompositorDocument.unusedURL(named: name), with: session,
-                                                          renderer: renderer)
+                                                          renderer: renderer, exporter: exporter)
         // Closed while the file was written: it's closed again.
         guard !isClosed else {
             await created.closeDocument()

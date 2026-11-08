@@ -36,6 +36,8 @@ import UIKit
         case transform(TransformDrag, duplicates: Bool)
         /// A marquee or lasso outline being drawn.
         case outline
+        /// A Quick Selection stroke being painted.
+        case quick
         /// The next corner of a polygonal lasso, placed where the touch lifts.
         case corner
         /// The selection's outline, dragged from `start`.
@@ -165,6 +167,13 @@ import UIKit
             return true
         }
         let mode = session.selectionMode(shift: keys.contains(.shift), option: keys.contains(.alternate))
+        // Quick Selection paints a selection, so it comes before moving one that is already there.
+        if session.tool == .wand, session.wandMode == .quick {
+            session.beginQuickSelection(at: pixel, mode: mode)
+            drag = .quick
+            overlayChanged()
+            return true
+        }
         // In New mode a drag inside the selection moves its outline rather than drawing another.
         if mode == .replace, session.canMoveSelection(at: pixel), session.beginSelectionMove() {
             drag = .selection(start: pixel)
@@ -206,6 +215,9 @@ import UIKit
             }
             session.dragTransform(transform, to: pixel, shift: keys.contains(.shift), option: keys.contains(.alternate),
                                   control: keys.contains(.control))
+            overlayChanged()
+        case .quick:
+            session.continueQuickSelection(at: pixel)
             overlayChanged()
         case .outline:
             switch session.lassoDraft?.kind {
@@ -298,6 +310,9 @@ import UIKit
         case .transform:
             // As the Mac's does: a drag applies itself when it's let go, unless it's part of an edit waiting for Apply.
             if session.transformEdit?.persistent == false { session.commitTransform() }
+        case .quick:
+            session.finishQuickSelection()
+            overlayChanged()
         case .outline:
             if session.lassoDraft?.kind != .polygonal { session.finishLasso() }
         case .corner:
@@ -364,6 +379,8 @@ import UIKit
             session.previewTransform(transform.original)
             if let corners = transform.originalCorners { session.previewCorners(corners) }
             if session.transformEdit?.persistent == false { session.cancelTransform() }
+        case .quick:
+            session.cancelQuickSelection()
         case .outline:
             if session.lassoDraft?.kind != .polygonal { session.cancelLasso() }
         case .corner:

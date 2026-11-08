@@ -33,6 +33,13 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
                                       sensitivity: 0.01, sliderWidth: nil)
     private lazy var list = UICollectionView(frame: .zero, collectionViewLayout: Self.layout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, UUID>!
+    private let searchField = UISearchTextField()
+    private let filterButton = UIButton(configuration: {
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: "line.3.horizontal.decrease.circle")
+        configuration.baseForegroundColor = .secondaryLabel
+        return configuration
+    }())
     private let empty = UIStackView()
     private let emptyDetail = UILabel()
     private let dropLine = UIView()
@@ -66,7 +73,25 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         title.font = .systemFont(ofSize: 13, weight: .semibold)
         count.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         count.textColor = .tertiaryLabel
-        let header = OptionControls.row([title, UIView(), count])
+        let searchButton = UIButton(configuration: {
+            var configuration = UIButton.Configuration.plain()
+            configuration.image = UIImage(systemName: "magnifyingglass")
+            configuration.baseForegroundColor = .secondaryLabel
+            return configuration
+        }())
+        searchButton.accessibilityLabel = "Search layers".localized
+        searchButton.addAction(UIAction { [weak self] _ in self?.toggleSearch() }, for: .primaryActionTriggered)
+        filterButton.accessibilityLabel = "Filter layers by kind".localized
+        filterButton.showsMenuAsPrimaryAction = true
+        let header = OptionControls.row([title, UIView(), count, searchButton, filterButton])
+        searchField.placeholder = "Search layers".localized
+        searchField.accessibilityLabel = "Search layers".localized
+        searchField.returnKeyType = .done
+        searchField.isHidden = true
+        searchField.addAction(UIAction { [weak self] _ in self?.searchChanged() }, for: .editingChanged)
+        let top = UIStackView(arrangedSubviews: [header, searchField])
+        top.axis = .vertical
+        top.spacing = 10
 
         blend.accessibilityLabel = "Blend mode".localized
         blend.onChoose = { [weak self] name in
@@ -173,15 +198,15 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         for view in [add, group, mask, effects, adjustments, UIView(), delete] as [UIView] { footerRow.addArrangedSubview(view) }
 
         let lines = (0..<3).map { _ in EditorWindowController.separator(vertical: false) }
-        for view in [header, lines[0], appearance, lines[1], list, empty, lines[2], footerRow] as [UIView] {
+        for view in [top, lines[0], appearance, lines[1], list, empty, lines[2], footerRow] as [UIView] {
             addSubview(view)
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.width),
-            header.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16), header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            lines[0].topAnchor.constraint(equalTo: header.bottomAnchor, constant: 14),
+            top.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            top.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16), top.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            lines[0].topAnchor.constraint(equalTo: top.bottomAnchor, constant: 14),
             appearance.topAnchor.constraint(equalTo: lines[0].bottomAnchor, constant: 12),
             appearance.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12), appearance.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             lines[1].topAnchor.constraint(equalTo: appearance.bottomAnchor, constant: 12),
@@ -204,6 +229,49 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         return UICollectionViewCompositionalLayout.list(using: configuration)
     }
 
+    /// Shows the search field, as the Mac's magnifier does, or puts it away and clears what it holds.
+    private func toggleSearch() {
+        searchField.isHidden.toggle()
+        if searchField.isHidden {
+            searchField.text = ""
+            searchChanged()
+        } else {
+            searchField.becomeFirstResponder()
+        }
+    }
+
+    /// The kinds the panel narrows to, as the Mac's filter lists them: a toggle for each, checked while it's on.
+    private func updateFilterMenu(_ session: EditorSession) {
+        filterButton.menu = UIMenu(children: LayerType.allCases.filter { $0 != .selected }.map { type in
+            UIAction(title: Self.title(of: type), state: session.layerTypeFilter.contains(type) ? .on : .off) { [weak self] _ in
+                guard let self, let session = self.session else { return }
+                if session.layerTypeFilter.contains(type) { session.layerTypeFilter.remove(type) }
+                else { session.layerTypeFilter.insert(type) }
+                self.setNeedsUpdateProperties()
+            }
+        })
+        filterButton.configuration?.baseForegroundColor = session.layerTypeFilter.isEmpty ? .secondaryLabel : .tintColor
+    }
+
+    static func title(of type: LayerType) -> String {
+        switch type {
+        case .image: "Image".localized
+        case .shape: "Shape".localized
+        case .text: "Text".localized
+        case .folder: "Folder".localized
+        case .adjustment: "Adjustment".localized
+        case .selected: "Selected".localized
+        }
+    }
+
+    /// The panel narrows to the layers matching what's typed, as the Mac's does: the shared rule says which.
+    private func searchChanged() {
+        guard let session else { return }
+        let text = searchField.text ?? ""
+        if session.layerSearchText != text { session.layerSearchText = text }
+        setNeedsUpdateProperties()
+    }
+
     // MARK: Following the editor
 
     override func updateProperties() {
@@ -222,10 +290,14 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         footer.last?.button.accessibilityLabel = deleteTitle
         footer.last?.button.setHelp(deleteTitle, hint: nil)
 
-        empty.isHidden = !layers.isEmpty || session.document == nil && isOpening
-        emptyDetail.text = session.document == nil ? "Create a canvas or import an image.".localized
+        let rows = rows(of: session)
+        empty.isHidden = !rows.isEmpty || session.document == nil && isOpening
+        emptyDetail.text = session.isFilteringLayers ? "No layers match.".localized
+                : session.document == nil ? "Create a canvas or import an image.".localized
                 : "Import an image or add a blank layer.".localized
-        show(rows(of: session))
+        if searchField.text != session.layerSearchText { searchField.text = session.layerSearchText }
+        updateFilterMenu(session)
+        show(rows)
     }
 
     private func rows(of session: EditorSession) -> [Row] {
@@ -233,12 +305,13 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         let enabled = session.canEditLayers
         let canvas = session.document?.size ?? CGSize(width: 1, height: 1)
         let single = session.selectedLayerIDs.count == 1
-        return session.layerRows.compactMap { entry in
+        return session.filteredLayerRows.compactMap { entry in
             guard let layer = byID[entry.layer.id] else { return nil }
             let target: Row.Target? = single && session.activeLayerID == layer.id ? (session.isMaskSelected ? .mask : .image) : nil
             return Row(layer: layer, depth: entry.depth, visible: entry.visible,
                        selected: session.selectedEffect == nil && session.selectedLayerIDs.contains(layer.id),
-                       target: target, collapsed: session.collapsedGroupIDs.contains(layer.id), enabled: enabled, canvas: canvas,
+                       target: target, collapsed: !session.isFilteringLayers && session.collapsedGroupIDs.contains(layer.id),
+                       enabled: enabled, canvas: canvas,
                        clippedTo: layer.maskSourceID.map { source in byID[source]?.name ?? "Missing source" },
                        effect: session.selectedEffect.flatMap { $0.layerID == layer.id ? $0.kind : nil })
         }
@@ -347,8 +420,7 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
 
     /// The Mac's menu for a layer's row, in its order.
     func menu(for id: UUID, in session: EditorSession) -> UIMenu {
-        let capabilities = LayerMenu.Capabilities(convertsDepth: false, exportsLayers: false,
-                                                  deletesSelectedEffect: true,
+        let capabilities = LayerMenu.Capabilities(deletesSelectedEffect: true,
                                                   canEditAdjustment: { AdjustmentEditors.kinds.contains($0) })
         func element(_ item: LayerMenu.Item) -> UIMenuElement {
             // Rename is dimmed in a menu made while the window can't show its prompt.
@@ -391,7 +463,8 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
         case .ungroup: session.ungroupLayers()
         case .moveOutOfFolder: session.moveActiveLayerOutOfGroup()
         case .merge: session.mergeLayers()
-        case .convertToSixteenBit, .convertToEightBit: break
+        case .convertToSixteenBit: session.convertLayers(toSixteenBit: true)
+        case .convertToEightBit: session.convertLayers(toSixteenBit: false)
         case .addMaskRevealAll: session.selectLayerTarget(id, mask: false); session.addMask(revealing: true)
         case .addMaskHideAll: session.selectLayerTarget(id, mask: false); session.addMask(revealing: false)
         case .toggleMask:
@@ -402,7 +475,8 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
             session.deleteLayerMask()
         case .toggleMaskLink: session.toggleMaskLink(id)
         case .toggleVisibility: session.toggleLayerVisibility(id)
-        case .addMask, .export: break
+        case .export: Task { await session.exportsLayers?() }
+        case .addMask: break
         }
     }
 
@@ -441,7 +515,7 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
     /// which the folder brings along itself.
     private func dragged(_ ids: Set<UUID>, in session: EditorSession) -> [UUID] {
         let carried = ids.reduce(into: Set<UUID>()) { $0.formUnion(session.descendantIDs(of: $1)) }
-        return session.layerRows.map(\.layer.id).filter { ids.contains($0) && !carried.contains($0) }
+        return session.filteredLayerRows.map(\.layer.id).filter { ids.contains($0) && !carried.contains($0) }
     }
 
     func collectionView(_ collectionView: UICollectionView, dragPreviewParametersForItemAt indexPath: IndexPath) -> UIDragPreviewParameters? {
@@ -487,7 +561,7 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
     private func accepts(_ ids: [UUID], at target: (row: Int, intoFolder: Bool)) -> Bool {
         guard let session else { return false }
         return LayerListPlacement.canPlace(ids, row: target.row, intoFolder: target.intoFolder,
-                                           rows: session.layerRows, in: session)
+                                           rows: session.filteredLayerRows, in: session)
     }
 
     func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate dropSession: UIDropSession,
@@ -547,7 +621,7 @@ final class LayersPanelView: MobileView, UICollectionViewDelegate, UICollectionV
     @discardableResult private func place(_ ids: [UUID], at row: Int, intoFolder: Bool) -> Bool {
         guard let session else { return false }
         return LayerListPlacement.place(ids, row: row, intoFolder: intoFolder, copying: false,
-                                        in: session, rows: session.layerRows)
+                                        in: session, rows: session.filteredLayerRows)
     }
 }
 
@@ -679,7 +753,7 @@ final class LayerRowCell: UICollectionViewCell, UIGestureRecognizerDelegate {
         let changedLayer = layerID != layer.id
         self.session = session
         layerID = layer.id
-        rowIDs = { [weak session] in session?.layerRows.map(\.layer.id) ?? [] }
+        rowIDs = { [weak session] in session?.filteredLayerRows.map(\.layer.id) ?? [] }
         let indent = CGFloat(min(row.depth, 8)) * 20 + (layer.maskSourceID == nil ? 0 : 20)
         indentation.constant = indent
 

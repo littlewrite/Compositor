@@ -241,22 +241,8 @@ extension EditorSession {
         guard let selection else { addLayerMask(revealing: revealing); return }
         guard canEditMask, let layer = activeLayer, layer.mask == nil,
               let index = document?.layers.firstIndex(where: { $0.id == layer.id }) else { return }
-        // Mask pixels cover the layer's own pixel grid, like every other mask.
-        let width = layer.asset?.image.width ?? Int(layer.size.width.rounded())
-        let height = layer.asset?.image.height ?? Int(layer.size.height.rounded())
         do {
-            guard width > 0, height > 0, width * height <= DocumentLimits.maxSurfacePixels else { throw ProjectError.tooLarge }
-            let context = try BrushRaster.context(width: width, height: height, mask: true)
-            context.setFillColor(gray: revealing ? 0 : 1, alpha: 1)
-            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-            guard let canvasSize = document?.size else { return }
-            let clip = try selection.clip(canvas: canvasSize)
-            context.concatenate(BrushRaster.pixelToDocument(layer.transform, width: width, height: height).inverted())
-            clip.apply(to: context)
-            context.setFillColor(gray: revealing ? 1 : 0, alpha: 1)
-            context.fill(clip.rect)
-            guard let image = context.makeImage() else { throw ExportError.render }
-            let mask = LayerMask(asset: try LayerMask.asset(from: image))
+            guard let mask = try selectionMask(for: layer, revealing: revealing) else { return }
             finishHeldDrags()
             beginEdit(revealing ? "Reveal Selection" : "Hide Selection")
             document?.layers[index].mask = mask
@@ -264,6 +250,25 @@ extension EditorSession {
             isMaskSelected = true
             endEdit()
         } catch { brushError = error.localizedDescription }
+    }
+
+    /// A mask for `layer` from the current selection: white inside and black outside, or the other way when hiding.
+    /// Mask pixels cover the layer's own pixel grid, like every other mask; nil without a selection.
+    func selectionMask(for layer: ImageLayer, revealing: Bool) throws -> LayerMask? {
+        guard let selection, let canvasSize = document?.size else { return nil }
+        let width = layer.asset?.image.width ?? Int(layer.size.width.rounded())
+        let height = layer.asset?.image.height ?? Int(layer.size.height.rounded())
+        guard width > 0, height > 0, width * height <= DocumentLimits.maxSurfacePixels else { throw ProjectError.tooLarge }
+        let context = try BrushRaster.context(width: width, height: height, mask: true)
+        context.setFillColor(gray: revealing ? 0 : 1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let clip = try selection.clip(canvas: canvasSize)
+        context.concatenate(BrushRaster.pixelToDocument(layer.transform, width: width, height: height).inverted())
+        clip.apply(to: context)
+        context.setFillColor(gray: revealing ? 1 : 0, alpha: 1)
+        context.fill(clip.rect)
+        guard let image = context.makeImage() else { throw ExportError.render }
+        return LayerMask(asset: try LayerMask.asset(from: image))
     }
 
     /// A plain all-white (reveal) or all-black (hide) mask, whatever is selected.

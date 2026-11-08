@@ -38,7 +38,7 @@ private let askedAtOnce = ["Image Size", "Canvas Size", "Rename", "Rename Layer"
     /// Waits up to a few seconds for `condition`, as the window's own tasks finish.
     /// Waits up to ten seconds for `condition`: the system's pickers can take a while to come up the first time.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(10, condition)
     }
 
     /// A 200 × 100 project with a gray layer at the top, in `session`.

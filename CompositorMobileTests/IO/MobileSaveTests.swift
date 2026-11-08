@@ -40,7 +40,7 @@ import UIKit
 
     /// Waits up to a few seconds for `condition`, as the document's and the window's own tasks finish.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// An edit the document has been told of, so an autosave saves it.

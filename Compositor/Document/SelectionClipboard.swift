@@ -144,14 +144,32 @@ extension EditorSession {
     /// Cmd-V: pastes as a new layer above the active one. Pixels copied here go back exactly
     /// where they came from; images copied in other apps are centered.
     func paste() {
-        guard canPaste, let document else { return }
+        guard canPaste, let pasted = pastedPixels() else { Platform.beep(); return }
+        addPixelLayer(pasted.image, at: pasted.origin, name: nextLayerName(), editName: "Paste")
+    }
+
+    /// Shift-Cmd-V: Paste, with the selection as the new layer's mask, so only what it covers shows.
+    var canPasteInto: Bool {
+        guard canPaste, let selection else { return false }
+        return !selection.isEmpty
+    }
+
+    func pasteInto() {
+        guard canPasteInto, let pasted = pastedPixels() else { Platform.beep(); return }
+        addPixelLayer(pasted.image, at: pasted.origin, name: nextLayerName(), editName: "Paste Into",
+                      maskFromSelection: true)
+    }
+
+    /// The pixels Paste and Paste Into put in, and where they land: copied here, exactly where they came from;
+    /// from another app, centered.
+    private func pastedPixels() -> (image: CGImage, origin: CGPoint)? {
+        guard let document else { return nil }
         if let clip = pixelClipboard, SystemPasteboard.changeCount == clip.changeCount {
-            addPixelLayer(clip.image, at: clip.origin, name: nextLayerName(), editName: "Paste")
-        } else if let external = SystemPasteboard.image(), let image = try? Self.sRGBCopy(of: external) {
-            let origin = CGPoint(x: floor((document.size.width - CGFloat(image.width)) / 2),
-                                 y: floor((document.size.height - CGFloat(image.height)) / 2))
-            addPixelLayer(image, at: origin, name: nextLayerName(), editName: "Paste")
-        } else { Platform.beep() }
+            return (clip.image, clip.origin)
+        }
+        guard let external = SystemPasteboard.image(), let image = try? Self.sRGBCopy(of: external) else { return nil }
+        return (image, CGPoint(x: floor((document.size.width - CGFloat(image.width)) / 2),
+                               y: floor((document.size.height - CGFloat(image.height)) / 2)))
     }
 
     /// Cmd-V on the New canvas screen with an image on the clipboard rather than a size copied as text: a canvas the
@@ -196,6 +214,27 @@ extension EditorSession {
         do {
             guard let copied = try renderSelectedPixels(from: layer, mask: isMaskSelected) else { Platform.beep(); return }
             addPixelLayer(copied.image, at: copied.region.origin, name: nextLayerName(), editName: "Layer via Copy")
+        } catch { brushError = error.localizedDescription }
+    }
+
+    /// The selected pixels become a new layer, and the layer they came from is left with a hole: one undo step.
+    var canLayerViaCut: Bool {
+        guard canEditLayers, let layer = activeLayer, !layer.isGroup, !isMaskSelected,
+              let selection, !selection.isEmpty else { return false }
+        return layer.asset != nil
+    }
+
+    func layerViaCut() async {
+        commitTransform()
+        guard canLayerViaCut, let layer = activeLayer else { return }
+        do {
+            guard let copied = try renderSelectedPixels(from: layer, mask: false) else { Platform.beep(); return }
+            finishHeldDrags()
+            // Both edits happen inside one history entry: clearing the selection, then the layer that takes it.
+            beginEdit("Layer via Cut")
+            await clearSelectedPixels()
+            addPixelLayer(copied.image, at: copied.region.origin, name: nextLayerName(), editName: "Layer via Cut")
+            endEdit()
         } catch { brushError = error.localizedDescription }
     }
 
@@ -255,6 +294,7 @@ extension EditorSession {
                 isGroup: original.isGroup, opacity: original.opacity, blendMode: original.blendMode,
                 mask: original.mask, maskSourceID: original.maskSourceID.map { mapping[$0] ?? $0 },
                 adjustment: original.adjustment, shape: original.shape, effects: original.effects, text: original.text,
+                fill: original.liveFill,
                 gifAnimation: currentGIFAnimation(for: original))
         }
         document?.layers.insert(contentsOf: copies, at: index + 1)
@@ -301,18 +341,26 @@ extension EditorSession {
 
     /// Inserts pixels as a new layer above the active one (inside its folder), all in one undo
     /// step. Pasting drops the selection, as in Photoshop; a drawn shape keeps it.
-    func addPixelLayer(_ image: CGImage, at origin: CGPoint, name: String, editName: String, dropsSelection: Bool = true, shape: LayerShape? = nil, text: LayerText? = nil) {
+    func addPixelLayer(_ image: CGImage, at origin: CGPoint, name: String, editName: String, dropsSelection: Bool = true,
+                       shape: LayerShape? = nil, text: LayerText? = nil, fill: LayerFill? = nil,
+                       maskFromSelection: Bool = false) {
         guard let document, let thumbnail = try? PixelInvert.thumbnail(of: image) else { return }
         var layer = ImageLayer(asset: ImportedImage(image: image, thumbnail: thumbnail, name: name), origin: origin)
         layer.name = name
         layer.shape = shape
         layer.text = text
+        layer.fill = fill
         let place = newLayerPlace(in: document)
         layer.parentID = place.parentID
         finishHeldDrags()
         beginEdit(editName)
+        if maskFromSelection, let selection, !selection.isEmpty,
+           let mask = try? selectionMask(for: layer, revealing: true) {
+            layer.mask = mask
+        }
         self.document?.layers.insert(layer, at: place.index)
         if dropsSelection { self.document?.selection = nil }
+        if maskFromSelection { isMaskSelected = false }
         activeLayerID = layer.id
         endEdit()
     }

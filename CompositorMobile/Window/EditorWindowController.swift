@@ -77,6 +77,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     private lazy var zoomInItem = barItem(symbol: "plus.magnifyingglass", label: "Zoom in") { $0.zoomKeyboard(by: 1) }
     private lazy var zoomOutItem = barItem(symbol: "minus.magnifyingglass", label: "Zoom out") { $0.zoomKeyboard(by: -1) }
     private let optionsBar = ToolOptionsBar()
+    private let gifTimeline = GIFTimelineView()
     private let rail = ToolRailView()
     private let canvasHost = UIView()
     private let newCanvas = NewCanvasView()
@@ -111,6 +112,8 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     private var noRailLayout: [NSLayoutConstraint] = []
     /// The mode bar's height: `ModeBarView.height` where the rail has gone, zero where it is.
     private var modeBarHeight: NSLayoutConstraint?
+    /// The strip of GIF frames, as tall as its thumbnails while the layer in front has any.
+    private var gifTimelineHeight: NSLayoutConstraint?
     /// The room the window gave at its last layout, and the shell that layout put on screen.
     private(set) var layout = LayoutContext(width: 0, height: 0)
     private var appliedShell: LayoutContext.Shell?
@@ -208,7 +211,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         layersBackdrop.isHidden = true
         layersBackdrop.alpha = 0
         layersBackdrop.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(closeLayersPanel)))
-        for subview in [optionsBar, optionsLine, rail, railLine, canvasHost, newCanvas, loadingCard, exportCard, dropTarget,
+        for subview in [optionsBar, optionsLine, gifTimeline, rail, railLine, canvasHost, newCanvas, loadingCard, exportCard, dropTarget,
                         layersBackdrop, panelLine, layersPanel, statusLine, statusBar, modeBar] as [UIView] {
             view.addSubview(subview)
             subview.translatesAutoresizingMaskIntoConstraints = false
@@ -221,9 +224,13 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
             optionsBar.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
             optionsBar.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             optionsLine.topAnchor.constraint(equalTo: optionsBar.bottomAnchor),
+            // A GIF layer's frames, when one is in front, between the settings and the tools.
+            gifTimeline.topAnchor.constraint(equalTo: optionsLine.bottomAnchor),
+            gifTimeline.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
+            gifTimeline.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             // The tools and the canvas, with the Layers panel beside them where there's room, between the settings and
             // the status line.
-            rail.topAnchor.constraint(equalTo: optionsLine.bottomAnchor), rail.bottomAnchor.constraint(equalTo: modeBar.topAnchor),
+            rail.topAnchor.constraint(equalTo: gifTimeline.bottomAnchor), rail.bottomAnchor.constraint(equalTo: modeBar.topAnchor),
             rail.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
             railLine.leadingAnchor.constraint(equalTo: rail.trailingAnchor),
             railLine.topAnchor.constraint(equalTo: rail.topAnchor), railLine.bottomAnchor.constraint(equalTo: rail.bottomAnchor),
@@ -238,13 +245,15 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
             canvasHost.topAnchor.constraint(equalTo: view.topAnchor),
             canvasHost.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ]
-        chromeViews = [optionsBar, optionsLine, rail, railLine, statusLine, statusBar, layersPanel, panelLine, modeBar]
+        chromeViews = [optionsBar, optionsLine, gifTimeline, rail, railLine, statusLine, statusBar, layersPanel, panelLine, modeBar]
         modeBarHeight = modeBar.heightAnchor.constraint(equalToConstant: 0)
+        gifTimelineHeight = gifTimeline.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             modeBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             modeBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             modeBar.bottomAnchor.constraint(equalTo: statusLine.topAnchor),
             modeBarHeight!,
+            gifTimelineHeight!,
             newCanvas.leadingAnchor.constraint(equalTo: canvasHost.leadingAnchor), newCanvas.trailingAnchor.constraint(equalTo: canvasHost.trailingAnchor),
             newCanvas.topAnchor.constraint(equalTo: canvasHost.topAnchor), newCanvas.bottomAnchor.constraint(equalTo: canvasHost.bottomAnchor),
             loadingCard.leadingAnchor.constraint(equalTo: canvasHost.leadingAnchor), loadingCard.trailingAnchor.constraint(equalTo: canvasHost.trailingAnchor),
@@ -424,6 +433,10 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         layersPanel.session = session
         statusBar.session = session
         modeBar.session = session
+        gifTimeline.session = session
+        let showsGIFTimeline = session.gifTimelineLayerID != nil
+        gifTimeline.isHidden = !showsGIFTimeline
+        gifTimelineHeight?.constant = showsGIFTimeline ? GIFTimelineView.height : 0
         followClear()
         // An opening tab isn't empty, though it has nothing yet; its canvas's handles and outlines wait for its picture.
         let opening = tab.loading?.isShowing == true
@@ -677,6 +690,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         context.hasRecentProjects = !services.recents.urls.isEmpty
         context.canEditFilter = { Self.filterEditors.contains($0) }
         context.canEditAdjustment = { AdjustmentEditors.kinds.contains($0) }
+        context.canToggleView = { $0.isAvailable }
         context.canPasteLayers = activeTab.map { copiedLayers(in: $0.session) != nil } ?? false
         return context
     }
@@ -756,6 +770,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         let (title, amount, maximum) = switch operation {
         case .expand: ("Expand Selection", session.selectionModifyAmount, 500)
         case .contract: ("Contract Selection", session.selectionModifyAmount, 500)
+        case .border: ("Border Selection", session.selectionModifyAmount, 500)
         case .feather: ("Feather Selection", session.selectionModifyAmount, 250)
         }
         let alert = UIAlertController(title: title, message: String(format: "A whole number from 1 to %@ px.".localized, maximum.formatted()), preferredStyle: .alert)
@@ -778,12 +793,17 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     // MARK: Tabs
 
     @discardableResult private func addTab() -> EditorTab {
-        let tab = EditorTab(name: TabWorkspace.freeUntitledName(taken: Set(tabs.map(\.title))), renderer: services.renderer)
+        let tab = EditorTab(name: TabWorkspace.freeUntitledName(taken: Set(tabs.map(\.title))), renderer: services.renderer,
+                            exporter: services.exporter)
         // A RAW develops at 8 bits here, as it did before 16-bit layers: at 16, a 48-megapixel frame (Photos' ProRAW
         // among them) peaks near 1.3 GB and keeps close to 1 GB, which the 3 GB iPad Air can't spare, while the import's
         // size check and the pixel budget still count four bytes a pixel. Lifted once 16-bit layers are counted at their
         // cost and the import is measured on the device.
         tab.session.developsRawAtSixteenBits = false
+        tab.session.exportsLayers = { [weak self, weak tab] in
+            guard let self, let tab else { return }
+            await self.exportLayers(of: tab)
+        }
         tabs.append(tab)
         select(tab.id)
         return tab
@@ -1445,7 +1465,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
                 defer { session.isProjectBusy = false }
                 do {
                     // Keeping the zoom, so added or trimmed canvas shows as such, as on the Mac.
-                    session.applyDocumentSize(try await CanvasResizer.shared.resize(snapshot, to: options), actionName: "Canvas Size",
+                    session.applyDocumentSize(try await services.canvasResizer.resize(snapshot, to: options), actionName: "Canvas Size",
                                               keepingZoom: true)
                 }
                 catch { self?.showError("Couldn’t change canvas size".localized, error) }
@@ -1470,7 +1490,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
             }
             self?.resizing = Task { [weak self] in
                 defer { session.isProjectBusy = false }
-                do { session.applyImageSize(try await ImageResizer.shared.resize(snapshot, to: options)) }
+                do { session.applyImageSize(try await services.imageResizer.resize(snapshot, to: options)) }
                 catch { self?.showError("Couldn’t resize the image".localized, error) }
             }
         }
@@ -1488,7 +1508,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         setNeedsUpdateProperties()
         makingExport = Task { [weak self] in
             do {
-                let data = try await ImageExporter.shared.pngData(snapshot, progress: { progress.said($0) })
+                let data = try await services.exporter.pngData(snapshot, progress: { progress.said($0) })
                 guard let self else {
                     session.isProjectBusy = false
                     return
@@ -1530,6 +1550,68 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         }
     }
 
+    /// The selected layers as PNGs, each trimmed to what it shows and named for it, offered together to share, save to
+    /// Photos or keep in Files, as the Mac's Export Layers writes them to a folder.
+    private func exportLayers(of tab: EditorTab) async {
+        let session = tab.session
+        guard let snapshot = exportSnapshot(of: session) else { return }
+        let files = LayerExportPlan.files(in: snapshot, selected: session.selectedLayerIDs, active: session.activeLayerID)
+        guard !files.isEmpty else { return }
+        let progress = ExportProgress(name: tab.title, kind: .png, width: snapshot.manifest.width, height: snapshot.manifest.height)
+        session.isProjectBusy = true
+        exporting = (tab, progress)
+        setNeedsUpdateProperties()
+        progress.said(.composing(total: files.count))
+        makingExport = Task { [weak self] in
+            do {
+                var made: [(name: String, data: Data)] = []
+                for (index, file) in files.enumerated() {
+                    if let data = try await services.exporter.layerPNGData(snapshot, layer: file.id) {
+                        made.append((file.name, data))
+                    }
+                    progress.said(.composed(done: index + 1))
+                }
+                guard let self else {
+                    session.isProjectBusy = false
+                    return
+                }
+                guard !made.isEmpty else {
+                    session.isProjectBusy = false
+                    endExport(progress)
+                    return
+                }
+                progress.opening()
+                // Something else may have come up meanwhile, as a menu, which the share sheet waits for; or the tab
+                // may have closed, as its window went.
+                showExportWhenClear { [weak self] in
+                    guard let self else { return }
+                    guard isStillOpen(tab) else {
+                        session.isProjectBusy = false
+                        endExport(progress)
+                        return
+                    }
+                    do {
+                        let share = try shareSheet(for: made) { _ in session.canvasFocusRequest += 1 }
+                        share.popoverPresentationController?.sourceView = tabStrip
+                        share.popoverPresentationController?.sourceRect = tabStrip.bounds
+                        present(share, animated: true) { [weak self] in
+                            session.isProjectBusy = false
+                            self?.endExport(progress)
+                        }
+                    } catch {
+                        session.isProjectBusy = false
+                        endExport(progress)
+                        showError("Couldn’t export the layers".localized, error)
+                    }
+                }
+            } catch {
+                session.isProjectBusy = false
+                self?.endExport(progress)
+                self?.showError("Couldn’t export the layers".localized, error)
+            }
+        }
+    }
+
     /// The flattened image as JPEG, through the JPEG settings of the Mac's Export As: a quality and a color for
     /// transparent areas, previewed as encoded. Then, as Export PNG does, to share, save to Photos or keep in Files.
     @objc func exportJPEG(_ sender: Any?) {
@@ -1544,9 +1626,9 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         setNeedsUpdateProperties()
         makingExport = Task { [weak self] in
             do {
-                let raster = try await ImageExporter.shared.render(snapshot, progress: { progress.said($0) })
+                let raster = try await services.exporter.render(snapshot, progress: { progress.said($0) })
                 let options = JPEGExportController.startingOptions
-                let encoded = try await ImageExporter.shared.jpeg(raster, options: options, progress: { progress.said($0) })
+                let encoded = try await services.exporter.jpeg(raster, options: options, progress: { progress.said($0) })
                 guard let self else {
                     session.isProjectBusy = false
                     return
@@ -1564,7 +1646,8 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
                     dialogSession = session
                     // Once the dialog has gone, however it goes, the canvas has the keyboard again, which UIKit gives
                     // back to nothing once a share sheet has been over the dialog.
-                    let dialog = JPEGExportController(raster: raster, encoded: (encoded, options)) { [weak self] data in
+                    let dialog = JPEGExportController(raster: raster, encoded: (encoded, options),
+                                                      exporter: services.exporter) { [weak self] data in
                         // Export…: the file, offered over the dialog. Shared, the dialog goes with the share sheet, as the
                         // Mac's goes once the file is saved; put away, the sheet leaves the dialog, to export again.
                         guard let self else { return nil }
@@ -1608,7 +1691,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         setNeedsUpdateProperties()
         makingExport = Task { [weak self] in
             do {
-                let raster = try await ImageExporter.shared.render(snapshot, progress: { progress.said($0) })
+                let raster = try await services.exporter.render(snapshot, progress: { progress.said($0) })
                 guard let self else {
                     session.isProjectBusy = false
                     return
@@ -1690,11 +1773,17 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     /// A share sheet offering `data` as a file named `name`, to share, save to Photos or keep in Files, from a folder of
     /// its own. `done` hears whether the file was shared, as UIKit says so as the sheet goes, however it goes.
     private func shareSheet(for data: Data, named name: String, done: @escaping (Bool) -> Void = { _ in }) throws -> UIActivityViewController {
-        let url = try ExportFolders.write(data, named: name)
-        offeredFile = url
-        let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        try shareSheet(for: [(name, data)], done: done)
+    }
+
+    /// A share sheet offering `files`, each named for what it is, from one folder of their own, as `shareSheet(for:named:)`
+    /// offers one.
+    private func shareSheet(for files: [(name: String, data: Data)], done: @escaping (Bool) -> Void = { _ in }) throws -> UIActivityViewController {
+        let urls = try ExportFolders.write(files)
+        offeredFile = urls.first
+        let share = UIActivityViewController(activityItems: urls, applicationActivities: nil)
         share.completionWithItemsHandler = { _, completed, _, _ in
-            ExportFolders.release(url)
+            for url in urls { ExportFolders.release(url) }
             done(completed)
         }
         return share
@@ -1709,31 +1798,6 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     @objc func zoomOut(_ sender: Any?) { activeTab?.session.zoomKeyboard(by: -1) }
 
     /// A switch in the View menu: which of the window's settings it turns on and off.
-    enum ViewSwitch: String {
-        case pixelGrid, transformControls, grid, guides, rulers, snap, snapToGuides, snapToGrid, snapToLayers,
-             snapToDocumentBounds, lockGuides, proofColors, gamutWarning
-
-        @MainActor var setting: ReferenceWritableKeyPath<EditorSession, Bool> {
-            switch self {
-            case .pixelGrid: \.showsPixelGrid
-            case .transformControls: \.showsTransformControls
-            case .grid: \.showsGrid
-            case .guides: \.showsGuides
-            case .rulers: \.showsRulers
-            case .snap: \.snapEnabled
-            case .snapToGuides: \.snapToGuides
-            case .snapToGrid: \.snapToGrid
-            case .snapToLayers: \.snapToLayers
-            case .snapToDocumentBounds: \.snapToDocumentBounds
-            case .lockGuides: \.locksGuides
-            case .proofColors: \.proofsColors
-            case .gamutWarning: \.showsGamutWarning
-            }
-        }
-        /// Whether the iOS app does what it says yet: it doesn't draw the pixel grid or rulers, and guides can't be
-        /// dragged, which locking them stops.
-        var isAvailable: Bool { ![.pixelGrid, .rulers, .lockGuides].contains(self) }
-    }
     /// Turns the View menu's switch on or off, as named by the command.
     @objc func toggleView(_ sender: UICommand) {
         guard let session = activeTab?.session, let name = sender.propertyList as? String,
@@ -1757,6 +1821,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     @objc func transformLayer(_ sender: Any?) { activeTab?.session.transformCommand() }
     /// ⌘J: the selection's pixels as a new layer, or with no selection a copy of the layer.
     @objc func layerViaCopy(_ sender: Any?) { activeTab?.session.layerViaCopy() }
+    @objc func layerViaCut(_ sender: Any?) { Task { await activeTab?.session.layerViaCut() } }
 
     // Arranging layers, as the Mac's Layer menu does.
     @objc func toggleClippingMask(_ sender: Any?) {
@@ -1767,6 +1832,8 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     @objc func ungroupLayers(_ sender: Any?) { activeTab?.session.ungroupLayers() }
     @objc func moveOutOfFolder(_ sender: Any?) { activeTab?.session.moveActiveLayerOutOfGroup() }
     @objc func newBlankLayer(_ sender: Any?) { activeTab?.session.addBlankLayer() }
+    @objc func newFillLayer(_ sender: Any?) { activeTab?.session.addFillLayer() }
+    @objc func newGradientFillLayer(_ sender: Any?) { activeTab?.session.addGradientFillLayer() }
     /// Asks for the layer's new name as the Layers panel's Rename… does, where the Mac opens the name in its panel for
     /// typing.
     @objc func renameLayer(_ sender: Any?) {
@@ -1782,6 +1849,10 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         activeTab?.session.moveActiveLayer(by: offset)
     }
     @objc func mergeLayers(_ sender: Any?) { activeTab?.session.mergeLayers() }
+    @objc func mergeVisibleLayers(_ sender: Any?) { activeTab?.session.mergeVisibleLayers() }
+    @objc func flattenImage(_ sender: Any?) { activeTab?.session.flattenImage() }
+    @objc func rasterizeLayer(_ sender: Any?) { activeTab?.session.rasterizeLayer() }
+    @objc func pasteInto(_ sender: Any?) { activeTab?.session.pasteInto() }
     /// Flip Layer Horizontal or Vertical, by the command's direction.
     @objc func flipLayers(_ sender: UICommand) {
         guard let horizontally = sender.propertyList as? Bool else { return }
@@ -1816,6 +1887,11 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         guard let raw = sender.propertyList as? String, let kind = FilterKind(rawValue: raw), Self.filterEditors.contains(kind) else { return }
         activeTab?.session.beginFilter(kind)
     }
+    /// An Image menu command that applies straight away, with no panel.
+    @objc func applyImageCommand(_ sender: UICommand) {
+        guard let session = activeTab?.session, let raw = sender.propertyList as? String, let kind = FilterKind(rawValue: raw) else { return }
+        Task { await session.applyFilterNow(kind) }
+    }
     @objc func curves(_ sender: Any?) { activeTab?.session.beginFilter(.curves) }
     @objc func hueSaturation(_ sender: Any?) { activeTab?.session.beginHueSaturation() }
     @objc func invertPixels(_ sender: Any?) {
@@ -1845,6 +1921,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
     }
     @objc func expandSelection(_ sender: Any?) { activeTab?.session.promptSelectionAmount(.expand) }
     @objc func contractSelection(_ sender: Any?) { activeTab?.session.promptSelectionAmount(.contract) }
+    @objc func borderSelection(_ sender: Any?) { activeTab?.session.promptSelectionAmount(.border) }
     @objc func featherSelection(_ sender: Any?) { activeTab?.session.promptSelectionAmount(.feather) }
     @objc func fillWithForeground(_ sender: Any?) {
         guard let session = activeTab?.session else { return }
@@ -1944,11 +2021,15 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         case #selector(copy(_:)): return enabled(.copy)
         case #selector(copyMerged(_:)): return enabled(.copyMerged)
         case #selector(paste(_:)): return enabled(.paste)
+        case #selector(pasteInto(_:)): return enabled(.pasteInto)
         case #selector(transformLayer(_:)): return enabled(.transform)
         case #selector(layerViaCopy(_:)): return enabled(.layerViaCopy)
+        case #selector(layerViaCut(_:)): return enabled(.layerViaCut)
         case #selector(toggleClippingMask(_:)): return enabled(.toggleClipping)
         case #selector(groupLayers(_:)): return enabled(.groupLayers)
         case #selector(newBlankLayer(_:)): return enabled(.newBlankLayer)
+        case #selector(newFillLayer(_:)): return enabled(.newFillLayer)
+        case #selector(newGradientFillLayer(_:)): return enabled(.newGradientFillLayer)
         case #selector(flipCanvas(_:)):
             return enabled((sender as? UICommand)?.propertyList as? Bool == true ? .flipCanvasHorizontal : .flipCanvasVertical)
         case #selector(rotateCanvas(_:)):
@@ -1963,13 +2044,14 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
             guard let offset = (sender as? UICommand)?.propertyList as? Int else { return false }
             return enabled(offset > 0 ? .moveLayerUp : .moveLayerDown)
         case #selector(mergeLayers(_:)): return enabled(.mergeLayers)
+        case #selector(mergeVisibleLayers(_:)): return enabled(.mergeVisibleLayers)
+        case #selector(flattenImage(_:)): return enabled(.flattenImage)
+        case #selector(rasterizeLayer(_:)): return enabled(.rasterizeLayer)
         case #selector(flipLayers(_:)):
             return enabled((sender as? UICommand)?.propertyList as? Bool == true ? .flipLayersHorizontal : .flipLayersVertical)
         case #selector(toggleView(_:)):
-            guard let viewSwitch = ((sender as? UICommand)?.propertyList as? String).flatMap(ViewSwitch.init),
-                  viewSwitch.isAvailable else { return false }
-            // Show Transform Controls is the Move tool's.
-            return context.hasDocument && (viewSwitch != .transformControls || context.session?.tool == .move)
+            guard let viewSwitch = ((sender as? UICommand)?.propertyList as? String).flatMap(ViewSwitch.init) else { return false }
+            return enabled(.viewSwitch(viewSwitch))
         case #selector(clearGuides(_:)): return enabled(.clearGuides)
         case #selector(gridSettings(_:)): return enabled(.gridSettings)
         case #selector(loadProofProfile(_:)): return enabled(.loadProofProfile)
@@ -1986,6 +2068,7 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         case #selector(selectSubject(_:)): return enabled(.selectSubject)
         case #selector(expandSelection(_:)): return enabled(.expandSelection)
         case #selector(contractSelection(_:)): return enabled(.contractSelection)
+        case #selector(borderSelection(_:)): return enabled(.borderSelection)
         case #selector(featherSelection(_:)): return enabled(.featherSelection)
         case #selector(fillWithForeground(_:)): return enabled(.fillForeground)
         case #selector(fillWithBackground(_:)): return enabled(.fillBackground)
@@ -2000,6 +2083,9 @@ final class EditorWindowController: MobileViewController, UIDocumentPickerDelega
         case #selector(curves(_:)): return enabled(.curves)
         case #selector(applyFilter(_:)):
             // Never without an editor to close it, since an open filter holds the project.
+            guard let raw = (sender as? UICommand)?.propertyList as? String, let kind = FilterKind(rawValue: raw) else { return false }
+            return enabled(.filter(kind))
+        case #selector(applyImageCommand(_:)):
             guard let raw = (sender as? UICommand)?.propertyList as? String, let kind = FilterKind(rawValue: raw) else { return false }
             return enabled(.filter(kind))
         case #selector(hueSaturation(_:)): return enabled(.hueSaturation)
@@ -2501,4 +2587,10 @@ private final class WindowView: UIView {
         super.tintColorDidChange()
         tintAdjusted()
     }
+}
+
+extension ViewSwitch {
+    /// Whether the iOS app does what it says yet: it doesn't draw the pixel grid or rulers, and guides can't be dragged,
+    /// which locking them stops.
+    var isAvailable: Bool { ![.pixelGrid, .rulers, .lockGuides].contains(self) }
 }

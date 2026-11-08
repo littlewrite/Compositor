@@ -69,8 +69,8 @@ struct LayerExportTests {
     }
 
     @Test func layerNamesBecomeFileNames() {
-        #expect(ProjectController.fileName("Logo / Dark: v2") == "Logo - Dark- v2")
-        #expect(ProjectController.fileName("  ") == "Layer")
-        #expect(ProjectController.fileName(".hidden") == "Layer.hidden")
+        #expect(LayerExportPlan.fileName("Logo / Dark: v2") == "Logo - Dark- v2")
+        #expect(LayerExportPlan.fileName("  ") == "Layer")
+        #expect(LayerExportPlan.fileName(".hidden") == "Layer.hidden")
     }
 }

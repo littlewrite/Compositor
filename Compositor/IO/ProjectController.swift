@@ -13,10 +13,14 @@ final class ProjectController {
     var canStart: Bool {
         session.canStartProjectOperation && workspace?.isManaging != true
     }
-    init(session: EditorSession) {
+    init(session: EditorSession, services: ProjectServices = .shared) {
         self.session = session
+        self.services = services
         session.exportsLayers = { [weak self] in await self?.exportLayers() }
     }
+
+    /// The file work this project goes through, from the app's composition root.
+    let services: ProjectServices
 
     private func begin() -> Bool {
         guard session.canStartProjectOperation else { return false }
@@ -52,7 +56,7 @@ final class ProjectController {
         guard let url = await savePanel(for: .png) else { return }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        do { try await ImageExporter.shared.exportPNG(snapshot, to: url) }
+        do { try await services.exporter.exportPNG(snapshot, to: url) }
         catch { await showError("Couldn’t export PNG".localized, error: error) }
     }
 
@@ -62,20 +66,12 @@ final class ProjectController {
         guard session.document != nil, begin() else { return }
         defer { session.isProjectBusy = false }
         guard let snapshot = session.projectSnapshot() else { return }
-        let selected = session.selectedLayerIDs.isEmpty ? Set(session.activeLayerID.map { [$0] } ?? []) : session.selectedLayerIDs
-        // Top first, as the panel lists them, so the upper of two layers of the same name keeps it.
-        let layers = snapshot.manifest.layers.reversed().filter { selected.contains($0.id) }
-        guard !layers.isEmpty else { return }
-        var used: Set<String> = []
-        let names = layers.map { layer in
-            let base = Self.fileName(layer.name)
-            var name = base, number = 2
-            while !used.insert(name.lowercased()).inserted { name = "\(base) \(number)"; number += 1 }
-            return name + ".png"
-        }
+        let files = LayerExportPlan.files(in: snapshot, selected: session.selectedLayerIDs, active: session.activeLayerID)
+        guard !files.isEmpty else { return }
+        let names = files.map(\.name)
         let urls: [URL]
         let folder: URL
-        if layers.count == 1 {
+        if files.count == 1 {
             let panel = NSSavePanel()
             panel.allowedContentTypes = [.png]
             panel.canCreateDirectories = true
@@ -90,7 +86,7 @@ final class ProjectController {
             panel.canChooseDirectories = true
             panel.canChooseFiles = false
             panel.canCreateDirectories = true
-            panel.title = "Export \(layers.count) Layers as PNGs"
+            panel.title = "Export \(files.count) Layers as PNGs"
             panel.message = "Choose a folder for the layers’ PNGs.".localized
             panel.prompt = "Export".localized
             guard await run(panel), let url = panel.url else { return }
@@ -112,11 +108,11 @@ final class ProjectController {
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         var empty: [String] = []
         do {
-            for (layer, url) in zip(layers, urls) {
-                guard let data = try await ImageExporter.shared.layerPNGData(snapshot, layer: layer.id) else {
-                    empty.append(layer.name); continue
+            for (file, url) in zip(files, urls) {
+                guard let data = try await services.exporter.layerPNGData(snapshot, layer: file.id) else {
+                    empty.append(file.layerName); continue
                 }
-                try await ImageExporter.shared.write(data, to: url)
+                try await services.exporter.write(data, to: url)
             }
         } catch { await showError("Couldn’t export layers".localized, error: error); return }
         if !empty.isEmpty {
@@ -128,13 +124,6 @@ final class ProjectController {
             alert.addButton(withTitle: "OK".localized)
             _ = await show(alert)
         }
-    }
-
-    /// A layer's name as a file's: without the characters Finder can't take, and never empty.
-    static func fileName(_ name: String) -> String {
-        let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty || cleaned.hasPrefix(".") ? "Layer" + cleaned : cleaned
     }
 
     private func run(_ panel: NSSavePanel) async -> Bool {
@@ -149,13 +138,13 @@ final class ProjectController {
         defer { session.isProjectBusy = false }
         guard let snapshot = session.projectSnapshot() else { return }
         do {
-            let raster = try await ImageExporter.shared.render(snapshot)
+            let raster = try await services.exporter.render(snapshot)
             // With a 16-bit layer in it, a PNG can be written at 16 bits a channel too.
             let deepRaster = snapshot.images.values.contains { $0.deep != nil }
-                ? try await ImageExporter.shared.render(snapshot, sixteenBit: true) : nil
+                ? try await services.exporter.render(snapshot, sixteenBit: true) : nil
             // With an HDR layer in it, it can go out as an EXR, light brighter than white kept.
             let hdrRaster = snapshot.images.values.contains { $0.isHDR }
-                ? try await ImageExporter.shared.render(snapshot, sixteenBit: true, hdr: true) : nil
+                ? try await services.exporter.render(snapshot, sixteenBit: true, hdr: true) : nil
             let chosen: (data: Data, format: ExportFormat)? = await withCheckedContinuation { continuation in
                 let sheet = NSWindow()
                 sheet.styleMask = [.titled, .fullSizeContentView]
@@ -176,7 +165,7 @@ final class ProjectController {
             guard let url = await savePanel(for: chosen.format) else { return }
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            try await ImageExporter.shared.write(chosen.data, to: url)
+            try await services.exporter.write(chosen.data, to: url)
         } catch { await showError("Couldn’t export".localized, error: error) }
     }
 
@@ -214,7 +203,7 @@ final class ProjectController {
         }
         guard let options, let snapshot = session.projectSnapshot() else { return }
         do {
-            let resized = try await CanvasResizer.shared.resize(snapshot, to: options)
+            let resized = try await services.canvasResizer.resize(snapshot, to: options)
             session.applyDocumentSize(resized, actionName: "Canvas Size", keepingZoom: true)
         } catch { await showError("Couldn’t change canvas size".localized, error: error) }
     }
@@ -236,7 +225,7 @@ final class ProjectController {
         }
         guard let options, let snapshot = session.projectSnapshot() else { return }
         do {
-            let resized = try await ImageResizer.shared.resize(snapshot, to: options)
+            let resized = try await services.imageResizer.resize(snapshot, to: options)
             session.applyImageSize(resized)
         } catch { await showError("Couldn’t resize the image".localized, error: error) }
     }
@@ -330,12 +319,12 @@ final class ProjectController {
             externalChanges.saving = true
             defer { externalChanges.saving = false }
             do {
-                let quickLook = await ImageExporter.shared.quickLookImages(snapshot)
-                try await ProjectStore.shared.save(snapshot, to: destination, quickLook: quickLook)
+                let quickLook = await services.exporter.quickLookImages(snapshot)
+                try await services.store.save(snapshot, to: destination, quickLook: quickLook)
                 session.projectURL = destination
                 session.history.markSaved(revision)
                 saveGeneration += 1
-                RecentProjects.shared.note(destination)
+                services.recents.note(destination)
                 await rememberProjectDigest(for: destination)
                 watchProject(at: destination)
                 return true
@@ -372,7 +361,7 @@ final class ProjectController {
         guard let source else { return false }
         // A recent project deleted in Finder: name the project, not the manifest inside it the load would miss.
         guard FileManager.default.fileExists(atPath: source.path) else {
-            RecentProjects.shared.refresh()
+            services.recents.refresh()
             await showError("Couldn’t open the project", error: CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: source.path]))
             return false
         }
@@ -380,16 +369,16 @@ final class ProjectController {
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
         do {
             // Validate first. A corrupt project never discards the live document.
-            var snapshot = try await ProjectStore.shared.load(from: source)
+            var snapshot = try await services.store.load(from: source)
             let previousSave = saveGeneration
             guard await confirmReplacement() else { return false }
             // Saving in the confirmation can replace the very file being opened.
             if saveGeneration != previousSave,
                session.projectURL?.resolvingSymlinksInPath() == source.resolvingSymlinksInPath() {
-                snapshot = try await ProjectStore.shared.load(from: source)
+                snapshot = try await services.store.load(from: source)
             }
             session.installProject(snapshot, from: source)
-            RecentProjects.shared.note(source)
+            services.recents.note(source)
             await rememberProjectDigest(for: source)
             watchProject(at: source)
             return true

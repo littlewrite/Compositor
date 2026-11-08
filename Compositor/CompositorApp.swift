@@ -160,11 +160,12 @@ struct CompositorApp: App {
                         Toggle("Navigator (300% and above)", isOn: $showsNavigator)
                         Toggle("Pixel Grid (800% and above)", isOn: Binding(get: { session.showsPixelGrid },
                                                                               set: { session.showsPixelGrid = $0 }))
+                            .disabled(!enabled(.viewSwitch(.pixelGrid)))
                         // ⌘H: the Move tool's transform box there; the selection's outline and the guides everywhere else.
                         if session.tool == .move {
                             Toggle("Show Transform Controls", isOn: Binding(get: { session.showsTransformControls },
                                                                               set: { session.showsTransformControls = $0 }))
-                                .configuredKeyboardShortcut("h").disabled(session.document == nil)
+                                .configuredKeyboardShortcut("h").disabled(!enabled(.viewSwitch(.transformControls)))
                         } else {
                             Toggle("Show Extras", isOn: Binding(get: { session.showsExtras }, set: { session.showsExtras = $0 }))
                                 .configuredKeyboardShortcut("h").disabled(session.document == nil)
@@ -175,11 +176,11 @@ struct CompositorApp: App {
                         Menu("CMYK") {
                             Toggle("Proof Colors", isOn: Binding(get: { session.proofsColors }, set: { session.proofsColors = $0 }))
                                 .assignableShortcut("CMYK Proof Colors")
-                                .disabled(session.document == nil)
+                                .disabled(!enabled(.viewSwitch(.proofColors)))
                             Toggle("Gamut Warning", isOn: Binding(get: { session.showsGamutWarning },
                                                                   set: { session.showsGamutWarning = $0 }))
                                 .assignableShortcut("CMYK Gamut Warning")
-                                .disabled(session.document == nil)
+                                .disabled(!enabled(.viewSwitch(.gamutWarning)))
                             Divider()
                             Menu("Profile") {
                                 let current = session.proofProfile ?? CMYK.chosen
@@ -195,33 +196,33 @@ struct CompositorApp: App {
                             Divider()
                             Menu("Show") {
                                 Toggle("Grid", isOn: Binding(get: { session.showsGrid }, set: { session.showsGrid = $0 }))
-                                    .configuredKeyboardShortcut("'").disabled(session.document == nil)
+                                    .configuredKeyboardShortcut("'").disabled(!enabled(.viewSwitch(.grid)))
                                 Toggle("Guides", isOn: Binding(get: { session.showsGuides }, set: { session.showsGuides = $0 }))
-                                    .configuredKeyboardShortcut(";").disabled(session.document == nil)
+                                    .configuredKeyboardShortcut(";").disabled(!enabled(.viewSwitch(.guides)))
                                 Toggle("Distances", isOn: Binding(get: { session.showsDistances }, set: { session.showsDistances = $0 }))
                                     .disabled(session.document == nil)
                             }
                             Button("Grid Settings…") { Task { await applicationDelegate.projects.gridSettings() } }
                                 .disabled(!enabled(.gridSettings))
                             Toggle("Rulers", isOn: Binding(get: { session.showsRulers }, set: { session.showsRulers = $0 }))
-                                .configuredKeyboardShortcut("r").disabled(session.document == nil)
+                                .configuredKeyboardShortcut("r").disabled(!enabled(.viewSwitch(.rulers)))
                             Divider()
                             Toggle("Snap", isOn: Binding(get: { session.snapEnabled }, set: { session.snapEnabled = $0 }))
-                                .configuredKeyboardShortcut(";", modifiers: [.command, .shift]).disabled(session.document == nil)
+                                .configuredKeyboardShortcut(";", modifiers: [.command, .shift]).disabled(!enabled(.viewSwitch(.snap)))
                             Menu("Snap To") {
                                 Toggle("Guides", isOn: Binding(get: { session.snapToGuides }, set: { session.snapToGuides = $0 }))
-                                    .disabled(session.document == nil)
+                                    .disabled(!enabled(.viewSwitch(.snapToGuides)))
                                 Toggle("Grid", isOn: Binding(get: { session.snapToGrid }, set: { session.snapToGrid = $0 }))
-                                    .disabled(session.document == nil)
+                                    .disabled(!enabled(.viewSwitch(.snapToGrid)))
                                 Toggle("Layers", isOn: Binding(get: { session.snapToLayers }, set: { session.snapToLayers = $0 }))
-                                    .disabled(session.document == nil)
+                                    .disabled(!enabled(.viewSwitch(.snapToLayers)))
                                 Toggle("Document Bounds", isOn: Binding(get: { session.snapToDocumentBounds },
                                                                         set: { session.snapToDocumentBounds = $0 }))
-                                    .disabled(session.document == nil)
+                                    .disabled(!enabled(.viewSwitch(.snapToDocumentBounds)))
                             }
                             Divider()
                             Toggle("Lock Guides", isOn: Binding(get: { session.locksGuides }, set: { session.locksGuides = $0 }))
-                                .configuredKeyboardShortcut(";", modifiers: [.command, .option]).disabled(session.document == nil)
+                                .configuredKeyboardShortcut(";", modifiers: [.command, .option]).disabled(!enabled(.viewSwitch(.lockGuides)))
                             Button("Clear Guides") { session.clearGuides() }
                                 .disabled(!enabled(.clearGuides))
                         }
@@ -266,6 +267,12 @@ struct CompositorApp: App {
                         else { NSSound.beep() }
                     }
                         .configuredKeyboardShortcut(.paste)
+                    Button("Paste Into") {
+                        if NSApp.isEditingText { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }
+                        else if session.canPasteInto { session.pasteInto() }
+                        else { NSSound.beep() }
+                    }
+                        .configuredKeyboardShortcut(.pasteInto)
                 }
                 CommandGroup(after: .pasteboard) {
                     Divider()
@@ -318,12 +325,14 @@ struct CompositorApp: App {
                     Button("Mask's Black Areas") {
                         if let id = session.activeLayerID { session.loadMaskSelection(layerID: id) }
                     }
-                        .disabled(session.activeLayer.flatMap { session.selectedMask(for: $0) } == nil || !session.canEditSelection)
+                        .disabled(!enabled(.selectMaskBlackAreas))
                     Divider()
                     Button("Expand…") { session.promptSelectionAmount(.expand) }
                         .disabled(!enabled(.expandSelection))
                     Button("Contract…") { session.promptSelectionAmount(.contract) }
                         .disabled(!enabled(.contractSelection))
+                    Button("Border…") { session.promptSelectionAmount(.border) }
+                        .disabled(!enabled(.borderSelection))
                     Button("Feather…") { session.promptSelectionAmount(.feather) }
                         .disabled(!enabled(.featherSelection))
                 }
@@ -334,8 +343,12 @@ struct CompositorApp: App {
                         .configuredKeyboardShortcut(.levels).disabled(!enabled(.levels))
                     Button("Hue/Saturation…") { session.beginHueSaturation() }
                         .configuredKeyboardShortcut(.hueSaturation).disabled(!enabled(.hueSaturation))
-                    ForEach([FilterKind.blackWhite, .colorBalance, .exposure, .gradientMap, .grain], id: \.self) { kind in
+                    ForEach(FilterKind.imageMenuAdjustments, id: \.self) { kind in
                         Button(kind.displayName + "…") { session.beginFilter(kind) }
+                            .disabled(!enabled(.filter(kind)))
+                    }
+                    ForEach(FilterKind.imageMenuCommands, id: \.self) { kind in
+                        Button(kind.displayName) { Task { await session.applyFilterNow(kind) } }
                             .disabled(!enabled(.filter(kind)))
                     }
                     Button(session.isMaskSelected ? "Invert Mask".localized : "Invert".localized) { Task { await session.invertPixels() } }
@@ -395,6 +408,8 @@ struct CompositorApp: App {
                         .configuredKeyboardShortcut(.transform).disabled(!enabled(.transform))
                     Button(session.selection == nil ? "Duplicate Layer".localized : "Layer via Copy".localized) { session.layerViaCopy() }
                         .configuredKeyboardShortcut(.layerViaCopy).disabled(!enabled(.layerViaCopy))
+                    Button("Layer via Cut") { Task { await session.layerViaCut() } }
+                        .configuredKeyboardShortcut(.layerViaCut).disabled(!enabled(.layerViaCut))
                     Divider()
                     Button(session.selectedClippingTitle) { session.toggleSelectedClipping() }
                     .configuredKeyboardShortcut(.toggleClipping)
@@ -408,6 +423,10 @@ struct CompositorApp: App {
                         .disabled(!enabled(.moveOutOfFolder))
                     Button("New Blank Layer") { session.addBlankLayer() }
                         .configuredKeyboardShortcut(.newBlankLayer).disabled(!enabled(.newBlankLayer))
+                    Button("New Color Fill Layer") { session.addFillLayer() }
+                        .disabled(!enabled(.newFillLayer))
+                    Button("New Gradient Fill Layer") { session.addGradientFillLayer() }
+                        .disabled(!enabled(.newGradientFillLayer))
                     Button("Rename Layer…") { session.renamingLayerID = session.activeLayerID }
                         .disabled(!enabled(.renameLayer))
                     Button(session.visibilityTitle) {
@@ -421,6 +440,12 @@ struct CompositorApp: App {
                     Group {
                         Button(session.mergeTitle) { session.mergeLayers() }
                             .configuredKeyboardShortcut(.mergeLayers).disabled(!enabled(.mergeLayers))
+                        Button("Merge Visible") { session.mergeVisibleLayers() }
+                            .configuredKeyboardShortcut(.mergeVisibleLayers).disabled(!enabled(.mergeVisibleLayers))
+                        Button("Flatten Image") { session.flattenImage() }
+                            .disabled(!enabled(.flattenImage))
+                        Button("Rasterize Layer") { session.rasterizeLayer() }
+                            .disabled(!enabled(.rasterizeLayer))
                         // As in the Layers panel's menu: whichever would change a selected layer, both for a mix.
                         if session.canConvertToSixteenBit || !session.canConvertToEightBit {
                             Button("Convert to 16-Bit") { session.convertLayers(toSixteenBit: true) }

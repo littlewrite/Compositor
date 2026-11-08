@@ -22,6 +22,46 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     case volumetricLight = "Volumetric Light"
     case rimLight = "Rim Light"
     case lensCorrection = "Lens Correction"
+    case wave = "Wave"
+    case ripple = "Ripple"
+    case tiltShiftBlur = "Tilt-Shift Blur"
+    case irisBlur = "Iris Blur"
+    case boxBlur = "Box Blur"
+    case zoomBlur = "Zoom Blur"
+    case bokehBlur = "Bokeh Blur"
+    case median = "Median"
+    case photoEffect = "Photo Effect"
+    case mosaic = "Mosaic"
+    case crystallize = "Crystallize"
+    case colorHalftone = "Color Halftone"
+    case pointillize = "Pointillize"
+    case hexagonalPixelate = "Hexagonal Pixelate"
+    case twirl = "Twirl"
+    case pinch = "Pinch"
+    case spherize = "Spherize"
+    case vortex = "Vortex"
+    case hole = "Hole"
+    case circleSplash = "Circle Splash"
+    case torusLens = "Torus Lens"
+    case gloom = "Gloom"
+    case kaleidoscope = "Kaleidoscope"
+    case findEdges = "Find Edges"
+    case comic = "Comic"
+    case lineScreen = "Line Screen"
+    case circularScreen = "Circular Screen"
+    case hatchedScreen = "Hatched Screen"
+    case glass = "Glass"
+    case glassLozenge = "Glass Lozenge"
+    case triangleKaleidoscope = "Triangle Kaleidoscope"
+    case falseColor = "False Color"
+    case monochrome = "Monochrome"
+    case discBlur = "Disc Blur"
+    case lensFlare = "Lens Flare"
+    case lightTunnel = "Light Tunnel"
+    case solarize = "Solarize"
+    case clouds = "Clouds"
+    case differenceClouds = "Difference Clouds"
+    case offset = "Offset"
     case cameraRaw = "Camera Raw Filter"
     case removeBackground = "Remove Background"
     case contentAwareFill = "Content-Aware Fill"
@@ -31,6 +71,27 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     case grain = "Grain"
     case blackWhite = "Black & White"
     case colorBalance = "Color Balance"
+    case brightnessContrast = "Brightness/Contrast"
+    case shadowsHighlights = "Shadows/Highlights"
+    case channelMixer = "Channel Mixer"
+    case photoFilter = "Photo Filter"
+    case selectiveColor = "Selective Color"
+    case replaceColor = "Replace Color"
+    case vibrance = "Vibrance"
+    case posterize = "Posterize"
+    case threshold = "Threshold"
+    case desaturate = "Desaturate"
+    case autoTone = "Auto Tone"
+    case autoContrast = "Auto Contrast"
+    case autoColor = "Auto Color"
+    case equalize = "Equalize"
+    /// The Image menu's one-click adjustments, which apply without a panel.
+    static let imageMenuCommands: [Self] = [.desaturate, .autoTone, .autoContrast, .autoColor, .equalize]
+    /// The Image menu's pixel adjustments, in its order. Their adjustment-layer versions are the Layer menu's own.
+    static let imageMenuAdjustments: [Self] = [
+        .blackWhite, .colorBalance, .exposure, .gradientMap, .grain, .brightnessContrast, .shadowsHighlights,
+        .vibrance, .posterize, .threshold, .channelMixer, .photoFilter, .selectiveColor, .replaceColor,
+    ]
     /// The filter's name as menus and editors show it, in the app's language; `rawValue` stays the project's.
     var displayName: String { rawValue.localized }
     var isAutomatic: Bool { self == .contentAwareFill || self == .removeBackground }
@@ -41,6 +102,19 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     var runsAtSixteenBits: Bool {
         self == .gaussianBlur || self == .motionBlur || self == .progressiveBlur || self == .bloomGlow || self == .lensEffects
             || self == .sharpen || self == .rimLight || self == .volumetricLight
+            || self == .brightnessContrast || self == .vibrance || self == .posterize || self == .threshold
+            || self == .mosaic || self == .crystallize || self == .colorHalftone || self == .twirl || self == .pinch
+            || self == .spherize || self == .vortex || self == .gloom || self == .kaleidoscope
+            || self == .pointillize || self == .hexagonalPixelate || self == .hole || self == .circleSplash || self == .torusLens
+            || self == .boxBlur || self == .zoomBlur || self == .bokehBlur || self == .median || self == .photoEffect
+            || self == .shadowsHighlights
+            || self == .findEdges || self == .comic || self == .lineScreen || self == .circularScreen
+            || self == .hatchedScreen || self == .glass || self == .glassLozenge || self == .triangleKaleidoscope
+            || self == .falseColor || self == .monochrome || self == .discBlur
+            || self == .lensFlare || self == .lightTunnel || self == .solarize || self == .offset
+            || self == .tiltShiftBlur || self == .irisBlur
+            || self == .selectiveColor || self == .replaceColor
+            || self == .desaturate || self == .autoTone || self == .autoContrast || self == .autoColor || self == .equalize
     }
     /// Filters whose output channels each depend on all three input channels (Camera Raw's color, and the ones that work
     /// from brightness), which a 16-bit layer runs the slower, channel-by-channel way (`DeepLayer.run`).
@@ -61,6 +135,190 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
     var isImageAdjustment: Bool {
         self == .curves || self == .exposure || self == .gradientMap || self == .grain
             || self == .blackWhite || self == .colorBalance
+            || self == .brightnessContrast || self == .vibrance || self == .posterize || self == .threshold
+            || self == .shadowsHighlights || self == .channelMixer || self == .photoFilter
+            || self == .selectiveColor || self == .replaceColor
+            || self == .desaturate || self == .autoTone || self == .autoContrast || self == .autoColor || self == .equalize
+    }
+}
+
+/// One of the photographic filters Photo Filter offers, each a tint with a name.
+nonisolated enum PhotoFilterPreset: String, CaseIterable, Sendable {
+    case warming85 = "Warming Filter (85)"
+    case warming81 = "Warming Filter (81)"
+    case warming80 = "Warming Filter (80)"
+    case cooling80 = "Cooling Filter (80)"
+    case cooling82 = "Cooling Filter (82)"
+    case sepia = "Sepia"
+    case deepRed = "Deep Red"
+    case deepBlue = "Deep Blue"
+    case deepEmerald = "Deep Emerald"
+    case deepYellow = "Deep Yellow"
+    var color: AdjustmentColor {
+        switch self {
+        case .warming85: AdjustmentColor(red: 0.93, green: 0.62, blue: 0.28)
+        case .warming81: AdjustmentColor(red: 0.94, green: 0.72, blue: 0.45)
+        case .warming80: AdjustmentColor(red: 0.96, green: 0.81, blue: 0.60)
+        case .cooling80: AdjustmentColor(red: 0.55, green: 0.72, blue: 0.95)
+        case .cooling82: AdjustmentColor(red: 0.70, green: 0.83, blue: 0.98)
+        case .sepia: AdjustmentColor(red: 0.78, green: 0.63, blue: 0.42)
+        case .deepRed: AdjustmentColor(red: 0.85, green: 0.20, blue: 0.20)
+        case .deepBlue: AdjustmentColor(red: 0.25, green: 0.35, blue: 0.85)
+        case .deepEmerald: AdjustmentColor(red: 0.20, green: 0.70, blue: 0.45)
+        case .deepYellow: AdjustmentColor(red: 0.95, green: 0.90, blue: 0.25)
+        }
+    }
+}
+
+/// False Color's palettes: what the darkest and lightest tones of a picture become.
+nonisolated enum FalseColorPalette: String, CaseIterable, Sendable {
+    case thermal = "Thermal"
+    case infrared = "Infrared"
+    case rainbow = "Rainbow"
+    case duotone = "Duotone"
+    case gold = "Gold"
+    case ice = "Ice"
+    var dark: AdjustmentColor {
+        switch self {
+        case .thermal: AdjustmentColor(red: 0.02, green: 0.02, blue: 0.40)
+        case .infrared: AdjustmentColor(red: 0.10, green: 0.00, blue: 0.30)
+        case .rainbow: AdjustmentColor(red: 0.10, green: 0.00, blue: 0.60)
+        case .duotone: AdjustmentColor(red: 0.05, green: 0.05, blue: 0.35)
+        case .gold: AdjustmentColor(red: 0.15, green: 0.05, blue: 0.00)
+        case .ice: AdjustmentColor(red: 0.00, green: 0.10, blue: 0.30)
+        }
+    }
+    var light: AdjustmentColor {
+        switch self {
+        case .thermal: AdjustmentColor(red: 1.00, green: 0.85, blue: 0.10)
+        case .infrared: AdjustmentColor(red: 0.95, green: 0.20, blue: 0.10)
+        case .rainbow: AdjustmentColor(red: 0.20, green: 0.95, blue: 0.30)
+        case .duotone: AdjustmentColor(red: 0.90, green: 0.90, blue: 0.95)
+        case .gold: AdjustmentColor(red: 1.00, green: 0.85, blue: 0.40)
+        case .ice: AdjustmentColor(red: 0.60, green: 0.90, blue: 1.00)
+        }
+    }
+}
+
+/// Monochrome's tints: the color a gray picture takes, from neutral to sepia and beyond.
+nonisolated enum MonochromeTint: String, CaseIterable, Sendable {
+    case neutral = "Neutral"
+    case sepia = "Sepia"
+    case cyanotype = "Cyanotype"
+    case selenium = "Selenium"
+    case gold = "Gold"
+    case rose = "Rose"
+    var color: AdjustmentColor {
+        switch self {
+        case .neutral: AdjustmentColor(red: 0.50, green: 0.50, blue: 0.50)
+        case .sepia: AdjustmentColor(red: 0.55, green: 0.50, blue: 0.42)
+        case .cyanotype: AdjustmentColor(red: 0.35, green: 0.55, blue: 0.75)
+        case .selenium: AdjustmentColor(red: 0.50, green: 0.48, blue: 0.55)
+        case .gold: AdjustmentColor(red: 0.70, green: 0.60, blue: 0.35)
+        case .rose: AdjustmentColor(red: 0.75, green: 0.45, blue: 0.50)
+        }
+    }
+}
+
+/// Where Lens Flare's light sits on the layer.
+nonisolated enum LensFlarePosition: String, CaseIterable, Sendable {
+    case center = "Center"
+    case topLeft = "Top Left"
+    case topRight = "Top Right"
+    case bottomLeft = "Bottom Left"
+    case bottomRight = "Bottom Right"
+    /// The light's place in the picture, from 0 to 1 across and up.
+    func point(in extent: CGRect) -> CGPoint {
+        let x: CGFloat, y: CGFloat
+        switch self {
+        case .center: x = 0.5; y = 0.5
+        case .topLeft: x = 0.28; y = 0.72
+        case .topRight: x = 0.72; y = 0.72
+        case .bottomLeft: x = 0.28; y = 0.28
+        case .bottomRight: x = 0.72; y = 0.28
+        }
+        return CGPoint(x: extent.minX + extent.width * x, y: extent.minY + extent.height * y)
+    }
+}
+
+/// The color of Lens Flare's light.
+nonisolated enum LensFlareTint: String, CaseIterable, Sendable {
+    case white = "White"
+    case warm = "Warm"
+    case cool = "Cool"
+    case violet = "Violet"
+    var color: AdjustmentColor {
+        switch self {
+        case .white: AdjustmentColor(red: 1.00, green: 0.96, blue: 0.88)
+        case .warm: AdjustmentColor(red: 1.00, green: 0.78, blue: 0.48)
+        case .cool: AdjustmentColor(red: 0.68, green: 0.84, blue: 1.00)
+        case .violet: AdjustmentColor(red: 0.80, green: 0.68, blue: 1.00)
+        }
+    }
+}
+
+/// Selective Color's nine families of color, each adjusted on its own.
+nonisolated enum SelectiveColorFamily: String, CaseIterable, Sendable {
+    case reds = "Reds"
+    case yellows = "Yellows"
+    case greens = "Greens"
+    case cyans = "Cyans"
+    case blues = "Blues"
+    case magentas = "Magentas"
+    case whites = "Whites"
+    case neutrals = "Neutrals"
+    case blacks = "Blacks"
+    /// The hue at the middle of a family's range, in degrees; nil for the grays.
+    var hue: Double? {
+        switch self {
+        case .reds: 0
+        case .yellows: 60
+        case .greens: 120
+        case .cyans: 180
+        case .blues: 240
+        case .magentas: 300
+        case .whites, .neutrals, .blacks: nil
+        }
+    }
+}
+
+/// How much one of Selective Color's families moves toward each ink, in percent.
+nonisolated struct SelectiveColorAmounts: Equatable, Sendable {
+    static let range: ClosedRange<Double> = -100...100
+    var cyan: Double = 0
+    var magenta: Double = 0
+    var yellow: Double = 0
+    var black: Double = 0
+    var isIdentity: Bool { cyan == 0 && magenta == 0 && yellow == 0 && black == 0 }
+    var normalized: Self {
+        func clamp(_ value: Double) -> Double {
+            value.isFinite ? min(Self.range.upperBound, max(Self.range.lowerBound, value)) : 0
+        }
+        return Self(cyan: clamp(cyan), magenta: clamp(magenta), yellow: clamp(yellow), black: clamp(black))
+    }
+}
+
+/// The two colors Clouds makes its sky from.
+nonisolated enum CloudsStyle: String, CaseIterable, Sendable {
+    case gray = "Gray"
+    case warm = "Warm"
+    case cool = "Cool"
+    case sunset = "Sunset"
+    var dark: AdjustmentColor {
+        switch self {
+        case .gray: AdjustmentColor(red: 0.45, green: 0.45, blue: 0.45)
+        case .warm: AdjustmentColor(red: 0.35, green: 0.25, blue: 0.15)
+        case .cool: AdjustmentColor(red: 0.20, green: 0.30, blue: 0.45)
+        case .sunset: AdjustmentColor(red: 0.35, green: 0.15, blue: 0.25)
+        }
+    }
+    var light: AdjustmentColor {
+        switch self {
+        case .gray: AdjustmentColor(red: 0.95, green: 0.95, blue: 0.95)
+        case .warm: AdjustmentColor(red: 1.00, green: 0.92, blue: 0.75)
+        case .cool: AdjustmentColor(red: 0.85, green: 0.93, blue: 1.00)
+        case .sunset: AdjustmentColor(red: 1.00, green: 0.70, blue: 0.35)
+        }
     }
 }
 
@@ -69,6 +327,30 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
 nonisolated enum BackgroundQuality: String, CaseIterable, Sendable {
     case basic = "Basic"
     case advanced = "Advanced"
+}
+
+/// One of Core Image's photographic looks, as the Photo Effect filter offers them.
+nonisolated enum PhotoEffect: String, CaseIterable, Sendable {
+    case transfer = "Transfer"
+    case process = "Process"
+    case chrome = "Chrome"
+    case fade = "Fade"
+    case instant = "Instant"
+    case mono = "Mono"
+    case noir = "Noir"
+    case tonal = "Tonal"
+    var filterName: String {
+        switch self {
+        case .transfer: "CIPhotoEffectTransfer"
+        case .process: "CIPhotoEffectProcess"
+        case .chrome: "CIPhotoEffectChrome"
+        case .fade: "CIPhotoEffectFade"
+        case .instant: "CIPhotoEffectInstant"
+        case .mono: "CIPhotoEffectMono"
+        case .noir: "CIPhotoEffectNoir"
+        case .tonal: "CIPhotoEffectTonal"
+        }
+    }
 }
 
 /// Every filter's settings; each filter reads only its own.
@@ -148,6 +430,133 @@ nonisolated struct FilterSettings: Equatable, Sendable {
     var grain = GrainSettings()
     var blackWhite = BlackWhiteSettings()
     var colorBalance = ColorBalanceSettings()
+    /// Brightness/Contrast: how far the whole picture is lifted and how much its tones spread, each −100…100.
+    var brightnessContrast = BrightnessContrastSettings()
+    /// Shadows/Highlights: how much the dark or bright end is opened up, and the radius that decides what counts as local.
+    var shadowsHighlights = ShadowsHighlightsSettings()
+    /// Channel Mixer: how much of each input channel reaches each output channel, in percent.
+    var channelMixer = ChannelMixerSettings()
+    /// Photo Filter: the tint's preset, how strongly it shows, and whether the picture keeps its brightness.
+    var photoFilterPreset: PhotoFilterPreset = .warming85
+    var photoFilterDensity: Double = 25
+    var photoFilterPreserveLuminosity = true
+    /// Selective Color: the family its panel edits, and each family's own ink adjustments.
+    var selectiveFamily: SelectiveColorFamily = .reds
+    var selectiveReds = SelectiveColorAmounts()
+    var selectiveYellows = SelectiveColorAmounts()
+    var selectiveGreens = SelectiveColorAmounts()
+    var selectiveCyans = SelectiveColorAmounts()
+    var selectiveBlues = SelectiveColorAmounts()
+    var selectiveMagentas = SelectiveColorAmounts()
+    var selectiveWhites = SelectiveColorAmounts()
+    var selectiveNeutrals = SelectiveColorAmounts()
+    var selectiveBlacks = SelectiveColorAmounts()
+    /// Replace Color: the hue to replace, how far around it to reach, and where those pixels go.
+    var replaceTargetHue: Double = 0
+    var replaceTolerance: Double = 60
+    var replaceHue: Double = 120
+    var replaceSaturation: Double = 0
+    var replaceLightness: Double = 0
+    /// Vibrance: how much muted colors are lifted while already-saturated ones stay put, −100…100.
+    var vibranceAmount: Double = 0
+    /// Posterize: how many levels each channel keeps, 2–255.
+    var posterizeLevels: Double = 4
+    /// Threshold: the brightness that splits the picture into black and white, 0–255.
+    var thresholdLevel: Double = 128
+    /// Mosaic: the size of each square block, in layer pixels.
+    var mosaicCellSize: Double = 10
+    /// Crystallize: the size of each crystal, in layer pixels.
+    var crystallizeSize: Double = 10
+    /// Pointillize and Hexagonal Pixelate: the size of each dot or hexagon, in layer pixels.
+    var pointillizeSize: Double = 10
+    var hexagonalPixelateSize: Double = 10
+    /// Hole, Circle Splash and Torus Lens: the radius of the effect, in layer pixels.
+    var holeRadius: Double = 60
+    var circleSplashRadius: Double = 60
+    var torusLensRadius: Double = 80
+    /// Torus Lens: how wide the ring is and how strongly it bends the light.
+    var torusLensWidth: Double = 40
+    var torusLensRefraction: Double = 1.5
+    /// Color Halftone: its dot width, screen angle and dot sharpness.
+    var halftoneWidth: Double = 8
+    var halftoneAngle: Double = 15
+    var halftoneSharpness: Double = 50
+    /// Twirl: how far the center turns, in degrees.
+    var twirlAngle: Double = 60
+    /// Pinch and Spherize: how strongly the layer's middle is pulled in or pushed out, 0–100.
+    var pinchAmount: Double = 50
+    var spherizeAmount: Double = 50
+    /// Vortex: how far the center swirls around, in degrees.
+    var vortexAngle: Double = 60
+    /// Gloom: the glow's blur radius in layer pixels, and its strength, 0–100.
+    var gloomRadius: Double = 10
+    var gloomIntensity: Double = 50
+    /// Kaleidoscope: how many mirrored slices, and how far they are turned, in degrees.
+    var kaleidoscopeCount: Double = 6
+    var kaleidoscopeAngle: Double = 0
+    /// Box Blur: its radius in layer pixels.
+    var boxBlurRadius: Double = 10
+    /// Zoom Blur: how far the blur streaks outward from the center, in layer pixels.
+    var zoomAmount: Double = 10
+    /// Bokeh Blur: the disc size, how much light gathers at its rim, how big that rim is, and how soft its edge is.
+    var bokehRadius: Double = 20
+    var bokehRingAmount: Double = 0
+    var bokehRingSize: Double = 50
+    var bokehSoftness: Double = 5
+    /// Photo Effect: which of Core Image's photographic looks to apply.
+    var photoEffect: PhotoEffect = .transfer
+    /// Find Edges: how strongly the edges show, 1–10.
+    var edgesIntensity: Double = 2
+    /// Glass: how far the random texture pushes pixels, in layer pixels.
+    var glassScale: Double = 100
+    /// Glass Lozenge: the lens's radius, and how strongly it bends the light.
+    var glassLensRadius: Double = 200
+    var glassRefraction: Double = 1.7
+    /// Triangle Kaleidoscope: the size of the mirrored triangle, how far it is turned, and how fast it fades.
+    var triangleKaleidoscopeSize: Double = 250
+    var triangleKaleidoscopeRotation: Double = 0
+    var triangleKaleidoscopeDecay: Double = 0.5
+    /// False Color: the colors the darkest and lightest tones become.
+    var falseColorPalette: FalseColorPalette = .thermal
+    /// Monochrome: the tint the picture takes, and how much of it shows, 0–100.
+    var monochromeTint: MonochromeTint = .neutral
+    var monochromeAmount: Double = 100
+    /// Disc Blur: its radius in layer pixels.
+    var discBlurRadius: Double = 8
+    /// Wave and Ripple: how far pixels move, the distance between crests, and where the wave starts, in degrees.
+    var waveAmplitude: Double = 10
+    var waveLength: Double = 60
+    var wavePhase: Double = 0
+    /// Wave runs up and down rather than side to side.
+    var waveVertical = false
+    /// Tilt-Shift Blur: its blur radius, where the sharp band sits, how wide it is and how far it is turned.
+    var tiltShiftRadius: Double = 20
+    var tiltShiftFocus: Double = 50
+    var tiltShiftBand: Double = 20
+    var tiltShiftAngle: Double = 0
+    /// Iris Blur: the sharp circle's radius, how far its edge feathers, and the blur's radius.
+    var irisBlurRadius: Double = 20
+    var irisRadius: Double = 100
+    var irisFeather: Double = 50
+    /// Lens Flare: where the light sits, its tint, how bright it is (0–200%), and how large it spreads.
+    var lensFlarePosition: LensFlarePosition = .center
+    var lensFlareTint: LensFlareTint = .white
+    var lensFlareBrightness: Double = 100
+    var lensFlareSize: Double = 120
+    /// Light Tunnel: the tunnel's radius and how far it twists, in degrees.
+    var lightTunnelRadius: Double = 80
+    var lightTunnelRotation: Double = 30
+    /// Solarize: the brightness above which tones invert, 0–255.
+    var solarizeThreshold: Double = 128
+    /// Clouds: the size of the largest cloud, how many finer octaves it has, its colors, and the seed that fixes its shape.
+    var cloudsScale: Double = 60
+    var cloudsDetail: Double = 50
+    var cloudsStyle: CloudsStyle = .gray
+    var cloudsSeed: UInt32 = 0
+    /// Offset: how far the layer moves, in layer pixels, and whether what leaves one side comes back on the other.
+    var offsetX: Double = 0
+    var offsetY: Double = 0
+    var offsetWrap = true
     var dither = DitherSettings()
     var scanlines = ScanlinesSettings()
     var cameraRaw = CameraRawSettings()
@@ -201,6 +610,83 @@ nonisolated struct FilterSettings: Equatable, Sendable {
         result.grain = grain.normalized
         result.blackWhite = blackWhite.normalized
         result.colorBalance = colorBalance.normalized
+        result.brightnessContrast = brightnessContrast.normalized
+        result.vibranceAmount = clamp(vibranceAmount, -100...100, 0)
+        result.posterizeLevels = clamp(posterizeLevels, 2...255, 4)
+        result.thresholdLevel = clamp(thresholdLevel, 0...255, 128)
+        result.mosaicCellSize = clamp(mosaicCellSize, 2...200, 10)
+        result.crystallizeSize = clamp(crystallizeSize, 1...100, 10)
+        result.pointillizeSize = clamp(pointillizeSize, 2...100, 10)
+        result.hexagonalPixelateSize = clamp(hexagonalPixelateSize, 2...100, 10)
+        result.holeRadius = clamp(holeRadius, 1...500, 60)
+        result.circleSplashRadius = clamp(circleSplashRadius, 1...500, 60)
+        result.torusLensRadius = clamp(torusLensRadius, 1...500, 80)
+        result.torusLensWidth = clamp(torusLensWidth, 1...200, 40)
+        result.torusLensRefraction = clamp(torusLensRefraction, 0...5, 1.5)
+        result.halftoneWidth = clamp(halftoneWidth, 4...100, 8)
+        result.halftoneAngle = clamp(halftoneAngle, -360...360, 15)
+        result.halftoneSharpness = clamp(halftoneSharpness, 0...100, 50)
+        result.twirlAngle = clamp(twirlAngle, -999...999, 60)
+        result.pinchAmount = clamp(pinchAmount, 0...100, 50)
+        result.spherizeAmount = clamp(spherizeAmount, 0...100, 50)
+        result.vortexAngle = clamp(vortexAngle, -999...999, 60)
+        result.gloomRadius = clamp(gloomRadius, 1...100, 10)
+        result.gloomIntensity = clamp(gloomIntensity, 0...100, 50)
+        result.kaleidoscopeCount = clamp(kaleidoscopeCount, 2...20, 6)
+        result.kaleidoscopeAngle = clamp(kaleidoscopeAngle, -360...360, 0)
+        result.boxBlurRadius = clamp(boxBlurRadius, 1...500, 10)
+        result.zoomAmount = clamp(zoomAmount, 0...100, 10)
+        result.bokehRadius = clamp(bokehRadius, 1...100, 20)
+        result.bokehRingAmount = clamp(bokehRingAmount, 0...100, 0)
+        result.bokehRingSize = clamp(bokehRingSize, 0...100, 50)
+        result.bokehSoftness = clamp(bokehSoftness, 0...100, 5)
+        result.shadowsHighlights = shadowsHighlights.normalized
+        result.channelMixer = channelMixer.normalized
+        result.photoFilterDensity = clamp(photoFilterDensity, 0...100, 25)
+        result.selectiveReds = selectiveReds.normalized
+        result.selectiveYellows = selectiveYellows.normalized
+        result.selectiveGreens = selectiveGreens.normalized
+        result.selectiveCyans = selectiveCyans.normalized
+        result.selectiveBlues = selectiveBlues.normalized
+        result.selectiveMagentas = selectiveMagentas.normalized
+        result.selectiveWhites = selectiveWhites.normalized
+        result.selectiveNeutrals = selectiveNeutrals.normalized
+        result.selectiveBlacks = selectiveBlacks.normalized
+        result.replaceTargetHue = clamp(replaceTargetHue, 0...360, 0)
+        result.replaceTolerance = clamp(replaceTolerance, 0...180, 60)
+        result.replaceHue = clamp(replaceHue, 0...360, 120)
+        result.replaceSaturation = clamp(replaceSaturation, -100...100, 0)
+        result.replaceLightness = clamp(replaceLightness, -100...100, 0)
+        result.edgesIntensity = clamp(edgesIntensity, 1...10, 2)
+        result.glassScale = clamp(glassScale, 1...500, 100)
+        result.glassLensRadius = clamp(glassLensRadius, 1...1000, 200)
+        result.glassRefraction = clamp(glassRefraction, 0...5, 1.7)
+        result.triangleKaleidoscopeSize = clamp(triangleKaleidoscopeSize, 10...2000, 250)
+        result.triangleKaleidoscopeRotation = clamp(triangleKaleidoscopeRotation, -360...360, 0)
+        result.triangleKaleidoscopeDecay = clamp(triangleKaleidoscopeDecay, 0...1, 0.5)
+        result.falseColorPalette = falseColorPalette
+        result.monochromeTint = monochromeTint
+        result.monochromeAmount = clamp(monochromeAmount, 0...100, 100)
+        result.discBlurRadius = clamp(discBlurRadius, 1...500, 8)
+        result.waveAmplitude = clamp(waveAmplitude, 0...200, 10)
+        result.waveLength = clamp(waveLength, 1...1000, 60)
+        result.wavePhase = clamp(wavePhase, -360...360, 0)
+        result.tiltShiftRadius = clamp(tiltShiftRadius, 0.1...250, 20)
+        result.tiltShiftFocus = clamp(tiltShiftFocus, 0...100, 50)
+        result.tiltShiftBand = clamp(tiltShiftBand, 0...100, 20)
+        result.tiltShiftAngle = clamp(tiltShiftAngle, -90...90, 0)
+        result.irisBlurRadius = clamp(irisBlurRadius, 0.1...250, 20)
+        result.irisRadius = clamp(irisRadius, 1...1000, 100)
+        result.irisFeather = clamp(irisFeather, 0...100, 50)
+        result.lensFlareBrightness = clamp(lensFlareBrightness, 0...200, 100)
+        result.lensFlareSize = clamp(lensFlareSize, 10...1000, 120)
+        result.lightTunnelRadius = clamp(lightTunnelRadius, 1...500, 80)
+        result.lightTunnelRotation = clamp(lightTunnelRotation, -360...360, 30)
+        result.solarizeThreshold = clamp(solarizeThreshold, 0...255, 128)
+        result.cloudsScale = clamp(cloudsScale, 2...500, 60)
+        result.cloudsDetail = clamp(cloudsDetail, 0...100, 50)
+        result.offsetX = clamp(offsetX, -1000...1000, 0)
+        result.offsetY = clamp(offsetY, -1000...1000, 0)
         result.dither = dither.normalized
         result.scanlines = scanlines.normalized
         result.lens = lens.normalized
@@ -209,6 +695,12 @@ nonisolated struct FilterSettings: Equatable, Sendable {
         result.cameraRaw = cameraRaw.normalized
         return result
     }
+    /// Selective Color's inks, in `SelectiveColorFamily.allCases` order.
+    var selectiveAmounts: [SelectiveColorAmounts] {
+        [selectiveReds, selectiveYellows, selectiveGreens, selectiveCyans, selectiveBlues, selectiveMagentas,
+         selectiveWhites, selectiveNeutrals, selectiveBlacks]
+    }
+    var hasSelectiveColor: Bool { selectiveAmounts.contains { !$0.isIdentity } }
 }
 
 /// Sides of a layer, in its own pixels (top is row 0).
@@ -403,10 +895,20 @@ nonisolated enum PixelFilter {
                                                         light: CGPoint(x: pixel.x, y: Double(height) - pixel.y)), job: job)
         case .motionBlur:
             // Core Image's y axis points up, so its counterclockwise angle matches Photoshop's.
-            let streaked = extending(edges, past: job.canvasSides, of: extent).applyingFilter("CIMotionBlur", parameters: [
-                kCIInputRadiusKey: settings.distance * job.scale * motionRadiusPerPixel,
-                kCIInputAngleKey: settings.angle * .pi / 180,
+            let radius = settings.distance * job.scale * motionRadiusPerPixel
+            let angle = settings.angle * .pi / 180
+            var streaked = extending(edges, past: job.canvasSides, of: extent).applyingFilter("CIMotionBlur", parameters: [
+                kCIInputRadiusKey: radius,
+                kCIInputAngleKey: angle,
             ])
+            // Its kernel leaves alpha a few percent under the source's, which would veil a picture that fills
+            // the canvas; put that back.
+            let gain = motionBlurAlphaGain(radius: radius, angle: angle)
+            if gain > 1 {
+                streaked = streaked.applyingFilter("CIColorMatrix", parameters: [
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: gain),
+                ])
+            }
             image = try render(streaked.cropped(to: extent), job: job)
         case .addNoise:
             // C, not Core Image: its random generator is uniform only, and Gaussian noise is needed too.
@@ -478,10 +980,669 @@ nonisolated enum PixelFilter {
                          width, height, source.bytesPerRow, settings.distortion / 100 * lensStrength)
             guard let corrected = destination.makeImage() else { throw ExportError.render }
             image = corrected
+        case .wave, .ripple:
+            let source = try BrushRaster.context(width: width, height: height, mask: false)
+            BrushRaster.draw(job.image, in: extent, mask: false, context: source)
+            let destination = try BrushRaster.context(width: width, height: height, mask: false)
+            guard let from = source.data, let into = destination.data else { throw ExportError.render }
+            let mode: Int32 = job.kind == .ripple ? 2 : (settings.waveVertical ? 1 : 0)
+            wave_distort(from.assumingMemoryBound(to: UInt8.self), into.assumingMemoryBound(to: UInt8.self),
+                         width, height, source.bytesPerRow,
+                         settings.waveAmplitude * Double(job.scale), settings.waveLength * Double(job.scale),
+                         settings.wavePhase * .pi / 180, mode)
+            guard let distorted = destination.makeImage() else { throw ExportError.render }
+            image = distorted
+        case .brightnessContrast:
+            let tone = settings.brightnessContrast
+            guard tone.brightness != 0 || tone.contrast != 0 else { image = job.image; break }
+            let adjusted = edges.applyingFilter("CIColorControls", parameters: [
+                kCIInputBrightnessKey: tone.brightness / 200,
+                kCIInputContrastKey: 1 + tone.contrast / 100,
+            ])
+            image = try render(adjusted.cropped(to: extent), job: job)
+        case .channelMixer:
+            let mixer = settings.channelMixer
+            guard !mixer.isIdentity else { image = job.image; break }
+            let red = CIVector(x: mixer.redFromRed / 100, y: mixer.redFromGreen / 100, z: mixer.redFromBlue / 100, w: 0)
+            let green: CIVector, blue: CIVector, bias: CIVector
+            if mixer.monochrome {
+                green = red; blue = red
+                bias = CIVector(x: mixer.redConstant / 100, y: mixer.redConstant / 100, z: mixer.redConstant / 100, w: 0)
+            } else {
+                green = CIVector(x: mixer.greenFromRed / 100, y: mixer.greenFromGreen / 100, z: mixer.greenFromBlue / 100, w: 0)
+                blue = CIVector(x: mixer.blueFromRed / 100, y: mixer.blueFromGreen / 100, z: mixer.blueFromBlue / 100, w: 0)
+                bias = CIVector(x: mixer.redConstant / 100, y: mixer.greenConstant / 100, z: mixer.blueConstant / 100, w: 0)
+            }
+            let mixed = edges.applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": red, "inputGVector": green, "inputBVector": blue,
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1), "inputBiasVector": bias,
+            ])
+            image = try render(mixed.cropped(to: extent), job: job)
+        case .photoFilter:
+            guard settings.photoFilterDensity > 0 else { image = job.image; break }
+            let tintColor = settings.photoFilterPreset.color
+            let tint = CIImage(color: CIColor(red: tintColor.red, green: tintColor.green, blue: tintColor.blue)).cropped(to: extent)
+            let tinted = tint.applyingFilter(settings.photoFilterPreserveLuminosity ? "CIColorBlendMode" : "CIMultiplyBlendMode",
+                                             parameters: [kCIInputBackgroundImageKey: edges])
+            let mixed = tinted.applyingFilter("CIMix", parameters: [
+                kCIInputBackgroundImageKey: edges,
+                "inputAmount": settings.photoFilterDensity / 100,
+            ])
+            image = try render(mixed.cropped(to: extent), job: job)
+        case .selectiveColor:
+            guard settings.hasSelectiveColor else { image = job.image; break }
+            let adjusted = edges.applyingFilter("CIColorCube", parameters: [
+                "inputCubeDimension": 32,
+                "inputCubeData": selectiveColorCube(settings),
+            ])
+            image = try render(adjusted.cropped(to: extent), job: job)
+        case .replaceColor:
+            guard settings.replaceTolerance > 0 else { image = job.image; break }
+            let adjusted = edges.applyingFilter("CIColorCube", parameters: [
+                "inputCubeDimension": 32,
+                "inputCubeData": replaceColorCube(settings),
+            ])
+            image = try render(adjusted.cropped(to: extent), job: job)
+        case .vibrance:
+            guard settings.vibranceAmount != 0 else { image = job.image; break }
+            let adjusted = edges.applyingFilter("CIVibrance", parameters: [kCIInputAmountKey: settings.vibranceAmount / 100])
+            image = try render(adjusted.cropped(to: extent), job: job)
+        case .posterize:
+            let posterized = edges.applyingFilter("CIColorPosterize", parameters: ["inputLevels": settings.posterizeLevels])
+            image = try render(posterized.cropped(to: extent), job: job)
+        case .threshold:
+            // Luminosity, as Photoshop measures it: a plain desaturation, then one split through white.
+            let gray = edges.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
+            let split = gray.applyingFilter("CIColorThreshold", parameters: ["inputThreshold": settings.thresholdLevel / 255])
+            image = try render(split.cropped(to: extent), job: job)
+        case .mosaic:
+            let blocks = edges.applyingFilter("CIPixellate", parameters: [
+                kCIInputScaleKey: settings.mosaicCellSize * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(blocks.cropped(to: extent), job: job)
+        case .crystallize:
+            let crystals = edges.applyingFilter("CICrystallize", parameters: [
+                kCIInputRadiusKey: settings.crystallizeSize * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(crystals.cropped(to: extent), job: job)
+        case .colorHalftone:
+            let halftone = edges.applyingFilter("CICMYKHalftone", parameters: [
+                "inputWidth": settings.halftoneWidth * job.scale,
+                "inputAngle": settings.halftoneAngle * .pi / 180,
+                "inputSharpness": settings.halftoneSharpness / 100,
+                "inputCenter": CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(halftone.cropped(to: extent), job: job)
+        case .twirl:
+            let radius = hypot(extent.width, extent.height) / 2
+            let twirled = edges.applyingFilter("CITwirlDistortion", parameters: [
+                kCIInputAngleKey: settings.twirlAngle * .pi / 180,
+                kCIInputRadiusKey: radius,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(twirled.cropped(to: extent), job: job)
+        case .pinch:
+            let radius = hypot(extent.width, extent.height) / 2
+            let pinched = edges.applyingFilter("CIPinchDistortion", parameters: [
+                kCIInputScaleKey: settings.pinchAmount / 100,
+                kCIInputRadiusKey: radius,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(pinched.cropped(to: extent), job: job)
+        case .spherize:
+            let radius = hypot(extent.width, extent.height) / 2
+            let sphere = edges.applyingFilter("CIBumpDistortion", parameters: [
+                kCIInputScaleKey: settings.spherizeAmount / 100 * 0.9,
+                kCIInputRadiusKey: radius,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(sphere.cropped(to: extent), job: job)
+        case .vortex:
+            let radius = hypot(extent.width, extent.height) / 2
+            let swirled = edges.applyingFilter("CIVortexDistortion", parameters: [
+                kCIInputAngleKey: settings.vortexAngle * .pi / 180,
+                kCIInputRadiusKey: radius,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(swirled.cropped(to: extent), job: job)
+        case .gloom:
+            let glowed = edges.applyingFilter("CIGloom", parameters: [
+                kCIInputRadiusKey: settings.gloomRadius * job.scale,
+                kCIInputIntensityKey: settings.gloomIntensity / 100,
+            ])
+            image = try render(glowed.cropped(to: extent), job: job)
+        case .kaleidoscope:
+            let mirror = edges.applyingFilter("CIKaleidoscope", parameters: [
+                "inputCount": settings.kaleidoscopeCount,
+                "inputAngle": settings.kaleidoscopeAngle * .pi / 180,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(mirror.cropped(to: extent), job: job)
+        case .findEdges:
+            let outline = edges.applyingFilter("CIEdges", parameters: ["inputIntensity": settings.edgesIntensity])
+            image = try render(outline.applyingFilter("CIColorInvert").cropped(to: extent), job: job)
+        case .comic:
+            image = try render(edges.applyingFilter("CIComicEffect").cropped(to: extent), job: job)
+        case .lineScreen:
+            let screened = edges.applyingFilter("CILineScreen", parameters: [
+                "inputWidth": settings.halftoneWidth * job.scale,
+                "inputAngle": settings.halftoneAngle * .pi / 180,
+                "inputSharpness": settings.halftoneSharpness / 100,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(screened.cropped(to: extent), job: job)
+        case .circularScreen:
+            let screened = edges.applyingFilter("CICircularScreen", parameters: [
+                "inputWidth": settings.halftoneWidth * job.scale,
+                "inputSharpness": settings.halftoneSharpness / 100,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(screened.cropped(to: extent), job: job)
+        case .hatchedScreen:
+            let screened = edges.applyingFilter("CIHatchedScreen", parameters: [
+                "inputWidth": settings.halftoneWidth * job.scale,
+                "inputAngle": settings.halftoneAngle * .pi / 180,
+                "inputSharpness": settings.halftoneSharpness / 100,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(screened.cropped(to: extent), job: job)
+        case .glass:
+            guard let texture = CIFilter(name: "CIRandomGenerator")?.outputImage?
+                .cropped(to: extent.insetBy(dx: -extent.width, dy: -extent.height)) else { throw ExportError.render }
+            let warped = edges.clampedToExtent().applyingFilter("CIGlassDistortion", parameters: [
+                "inputTexture": texture,
+                "inputScale": settings.glassScale * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(warped.cropped(to: extent), job: job)
+        case .glassLozenge:
+            let warped = edges.clampedToExtent().applyingFilter("CIGlassLozenge", parameters: [
+                "inputPoint0": CIVector(x: extent.midX - extent.width * 0.15, y: extent.midY),
+                "inputPoint1": CIVector(x: extent.midX + extent.width * 0.15, y: extent.midY),
+                "inputRadius": settings.glassLensRadius * job.scale,
+                "inputRefraction": settings.glassRefraction,
+            ])
+            image = try render(warped.cropped(to: extent), job: job)
+        case .triangleKaleidoscope:
+            let mirrored = edges.applyingFilter("CITriangleKaleidoscope", parameters: [
+                "inputPoint": CIVector(x: extent.midX, y: extent.midY),
+                "inputSize": settings.triangleKaleidoscopeSize * job.scale,
+                "inputRotation": settings.triangleKaleidoscopeRotation * .pi / 180,
+                "inputDecay": settings.triangleKaleidoscopeDecay,
+            ])
+            image = try render(mirrored.cropped(to: extent), job: job)
+        case .falseColor:
+            let dark = settings.falseColorPalette.dark, light = settings.falseColorPalette.light
+            let mapped = edges.applyingFilter("CIFalseColor", parameters: [
+                "inputColor0": CIColor(red: dark.red, green: dark.green, blue: dark.blue),
+                "inputColor1": CIColor(red: light.red, green: light.green, blue: light.blue),
+            ])
+            image = try render(mapped.cropped(to: extent), job: job)
+        case .monochrome:
+            let tint = settings.monochromeTint.color
+            let toned = edges.applyingFilter("CIColorMonochrome", parameters: [
+                kCIInputColorKey: CIColor(red: tint.red, green: tint.green, blue: tint.blue),
+                kCIInputIntensityKey: settings.monochromeAmount / 100,
+            ])
+            image = try render(toned.cropped(to: extent), job: job)
+        case .discBlur:
+            let blurred = edges.clampedToExtent().applyingFilter("CIDiscBlur", parameters: [
+                kCIInputRadiusKey: settings.discBlurRadius * job.scale,
+            ])
+            image = try render(blurred.cropped(to: extent), job: job)
+        case .lensFlare:
+            guard settings.lensFlareBrightness > 0 else { image = job.image; break }
+            let point = settings.lensFlarePosition.point(in: extent)
+            let tint = settings.lensFlareTint.color
+            let strength = min(1, settings.lensFlareBrightness / 100)
+            let color = CIColor(red: tint.red * strength, green: tint.green * strength, blue: tint.blue * strength)
+            let center = CIVector(x: point.x, y: point.y)
+            let size = settings.lensFlareSize * job.scale
+            guard let sun = CIFilter(name: "CISunbeamsGenerator", parameters: [
+                    kCIInputCenterKey: center, kCIInputColorKey: color,
+                    "inputSunRadius": size * 0.08, "inputMaxStriationRadius": size * 0.04,
+                    "inputStriationStrength": 0.5, "inputStriationContrast": 1,
+                ])?.outputImage,
+                let halo = CIFilter(name: "CILenticularHaloGenerator", parameters: [
+                    kCIInputCenterKey: center, kCIInputColorKey: color,
+                    "inputHaloRadius": size * 0.25, "inputHaloWidth": size * 0.12, "inputHaloOverlap": 0.8,
+                ])?.outputImage,
+                let star = CIFilter(name: "CIStarShineGenerator", parameters: [
+                    kCIInputCenterKey: center, kCIInputColorKey: color,
+                    "inputRadius": size * 0.06, "inputCrossScale": 15, "inputCrossWidth": 2.5, "inputEpsilon": 1.5,
+                ])?.outputImage else { throw ExportError.render }
+            let glow = halo.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: sun])
+                .applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: star])
+            let lit = glow.applyingFilter("CIScreenBlendMode", parameters: [kCIInputBackgroundImageKey: edges])
+            image = try render(lit.cropped(to: extent), job: job)
+        case .lightTunnel:
+            let tunnel = edges.applyingFilter("CILightTunnel", parameters: [
+                kCIInputRadiusKey: settings.lightTunnelRadius * job.scale,
+                "inputRotation": settings.lightTunnelRotation * .pi / 180,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(tunnel.cropped(to: extent), job: job)
+        case .solarize:
+            let threshold = settings.solarizeThreshold
+            let table = (0...255).map { index -> Float in
+                let value = Double(index)
+                return Float((value <= threshold ? value : 255 - value) / 255)
+            }
+            let solarized = edges.applyingFilter("CIColorCurves", parameters: curveParameters([table]))
+            image = try render(solarized.cropped(to: extent), job: job)
+        case .clouds, .differenceClouds:
+            let clouds = try cloudImage(width: width, height: height, job: job, settings: settings)
+            guard job.kind == .differenceClouds else { image = clouds; break }
+            let blended = CIImage(cgImage: clouds).applyingFilter("CIDifferenceBlendMode", parameters: [
+                kCIInputBackgroundImageKey: edges,
+            ])
+            image = try render(blended.cropped(to: extent), job: job)
+        case .offset:
+            let dx = settings.offsetX * job.scale, dy = -settings.offsetY * job.scale
+            let moved = edges.transformed(by: CGAffineTransform(translationX: dx, y: dy))
+            guard settings.offsetWrap else {
+                image = try render(moved.cropped(to: extent), job: job)
+                break
+            }
+            var wrapped: CIImage?
+            for column in -1...1 {
+                for row in -1...1 {
+                    let copy = moved.transformed(by: CGAffineTransform(
+                        translationX: extent.width * CGFloat(column), y: extent.height * CGFloat(row)))
+                    wrapped = wrapped.map {
+                        copy.applyingFilter("CISourceOverCompositing", parameters: [kCIInputBackgroundImageKey: $0])
+                    } ?? copy
+                }
+            }
+            guard let wrapped else { throw ExportError.render }
+            image = try render(wrapped.cropped(to: extent), job: job)
+        case .tiltShiftBlur:
+            let blurred = extending(edges, past: job.canvasSides, of: extent)
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: settings.tiltShiftRadius * job.scale])
+            let angle = settings.tiltShiftAngle * .pi / 180
+            let normal = CGPoint(x: sin(angle), y: cos(angle))
+            let focus = CGPoint(x: extent.midX + normal.x * (settings.tiltShiftFocus / 100 - 0.5) * extent.height,
+                                y: extent.midY + normal.y * (settings.tiltShiftFocus / 100 - 0.5) * extent.height)
+            let halfBand = settings.tiltShiftBand / 100 * extent.height / 2
+            let reach = (max(extent.width, extent.height) + halfBand) * 1.5
+            func gradient(_ toward: CGFloat) -> CIImage? {
+                let start = CGPoint(x: focus.x + normal.x * halfBand * toward, y: focus.y + normal.y * halfBand * toward)
+                let end = CGPoint(x: focus.x + normal.x * (halfBand + reach) * toward,
+                                  y: focus.y + normal.y * (halfBand + reach) * toward)
+                return CIFilter(name: "CILinearGradient", parameters: [
+                    "inputPoint0": CIVector(x: start.x, y: start.y),
+                    "inputPoint1": CIVector(x: end.x, y: end.y),
+                    "inputColor0": CIColor(red: 0, green: 0, blue: 0),
+                    "inputColor1": CIColor(red: 1, green: 1, blue: 1),
+                ])?.outputImage
+            }
+            guard let above = gradient(1), let below = gradient(-1) else { throw ExportError.render }
+            let mask = above.applyingFilter("CILightenBlendMode", parameters: [kCIInputBackgroundImageKey: below]).cropped(to: extent)
+            let mixed = blurred.applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: edges,
+                kCIInputMaskImageKey: mask,
+            ])
+            image = try render(mixed.cropped(to: extent), job: job)
+        case .irisBlur:
+            let blurred = extending(edges, past: job.canvasSides, of: extent)
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: settings.irisBlurRadius * job.scale])
+            let radius = settings.irisRadius * job.scale
+            let feather = max(1, settings.irisFeather / 100 * radius)
+            guard let mask = CIFilter(name: "CIRadialGradient", parameters: [
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+                "inputRadius0": radius,
+                "inputRadius1": radius + feather,
+                "inputColor0": CIColor(red: 0, green: 0, blue: 0),
+                "inputColor1": CIColor(red: 1, green: 1, blue: 1),
+            ])?.outputImage?.cropped(to: extent) else { throw ExportError.render }
+            let mixed = blurred.applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: edges,
+                kCIInputMaskImageKey: mask,
+            ])
+            image = try render(mixed.cropped(to: extent), job: job)
+        case .boxBlur:
+            let source = extending(edges, past: job.canvasSides, of: extent)
+            let blurred = source.applyingFilter("CIBoxBlur", parameters: [kCIInputRadiusKey: settings.boxBlurRadius * job.scale])
+            image = try render(blurred.cropped(to: extent), job: job)
+        case .zoomBlur:
+            let zoomed = edges.applyingFilter("CIZoomBlur", parameters: [
+                kCIInputAmountKey: settings.zoomAmount * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(zoomed.cropped(to: extent), job: job)
+        case .bokehBlur:
+            let bokeh = edges.applyingFilter("CIBokehBlur", parameters: [
+                kCIInputRadiusKey: settings.bokehRadius * job.scale,
+                "inputRingAmount": settings.bokehRingAmount / 100,
+                "inputRingSize": settings.bokehRingSize / 100,
+                "inputSoftness": settings.bokehSoftness / 100,
+            ])
+            image = try render(bokeh.cropped(to: extent), job: job)
+        case .median:
+            image = try render(edges.applyingFilter("CIMedianFilter").cropped(to: extent), job: job)
+        case .photoEffect:
+            image = try render(edges.applyingFilter(settings.photoEffect.filterName).cropped(to: extent), job: job)
+        case .shadowsHighlights:
+            let tone = settings.shadowsHighlights
+            guard !tone.isIdentity else { image = job.image; break }
+            let adjusted = edges.applyingFilter("CIHighlightShadowAdjust", parameters: [
+                "inputShadowAmount": tone.shadows / 100,
+                "inputHighlightAmount": tone.highlights / 100,
+                kCIInputRadiusKey: tone.radius * job.scale,
+            ])
+            image = try render(adjusted.cropped(to: extent), job: job)
+        case .pointillize:
+            let dots = edges.applyingFilter("CIPointillize", parameters: [
+                kCIInputRadiusKey: settings.pointillizeSize * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(dots.cropped(to: extent), job: job)
+        case .hexagonalPixelate:
+            let hexagons = edges.applyingFilter("CIHexagonalPixellate", parameters: [
+                kCIInputScaleKey: settings.hexagonalPixelateSize * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(hexagons.cropped(to: extent), job: job)
+        case .hole:
+            let holed = edges.applyingFilter("CIHoleDistortion", parameters: [
+                kCIInputRadiusKey: settings.holeRadius * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(holed.cropped(to: extent), job: job)
+        case .circleSplash:
+            let splashed = edges.applyingFilter("CICircleSplashDistortion", parameters: [
+                kCIInputRadiusKey: settings.circleSplashRadius * job.scale,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(splashed.cropped(to: extent), job: job)
+        case .torusLens:
+            let lens = edges.applyingFilter("CITorusLensDistortion", parameters: [
+                kCIInputRadiusKey: settings.torusLensRadius * job.scale,
+                "inputWidth": settings.torusLensWidth * job.scale,
+                "inputRefraction": settings.torusLensRefraction,
+                kCIInputCenterKey: CIVector(x: extent.midX, y: extent.midY),
+            ])
+            image = try render(lens.cropped(to: extent), job: job)
+        case .desaturate:
+            let gray = edges.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
+            image = try render(gray.cropped(to: extent), job: job)
+        case .autoTone, .autoContrast, .autoColor, .equalize:
+            image = try render(autoAdjusted(edges, source: job.image, kind: job.kind).cropped(to: extent), job: job)
         }
         guard let selection = job.selection else { return image }
         return try PixelAdjust.blend(image, over: job.image, through: selection, pixelToDocument: job.mapping, isMask: false,
                                      sixteenBit: job.sixteenBit)
+    }
+
+    /// A small RGBA copy of an image, for reading its histogram without touching every full-size pixel.
+    private struct HistogramSample {
+        let pixels: [UInt8]
+        let width: Int
+        let height: Int
+        let rowBytes: Int
+    }
+
+    private static func histogramSample(_ image: CGImage) throws -> HistogramSample {
+        let longest = max(image.width, image.height)
+        let scale = longest > 512 ? 512 / CGFloat(longest) : 1
+        let width = max(1, Int(CGFloat(image.width) * scale)), height = max(1, Int(CGFloat(image.height) * scale))
+        let context = try BrushRaster.context(width: width, height: height, mask: false)
+        BrushRaster.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height), mask: false, context: context)
+        guard let data = context.data else { throw ExportError.render }
+        let count = context.bytesPerRow * height
+        return HistogramSample(pixels: Array(UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: count)),
+                               width: width, height: height, rowBytes: context.bytesPerRow)
+    }
+
+    /// Auto Tone, Auto Contrast, Auto Color and Equalize, as curves through the picture's own histogram.
+    private static func autoAdjusted(_ image: CIImage, source: CGImage, kind: FilterKind) throws -> CIImage {
+        let sample = try histogramSample(source)
+        var channels = [[Int]](repeating: [Int](repeating: 0, count: 256), count: 3)
+        var luminance = [Int](repeating: 0, count: 256)
+        var counted = 0
+        for y in 0..<sample.height {
+            for x in 0..<sample.width {
+                let offset = y * sample.rowBytes + x * 4
+                guard sample.pixels[offset + 3] > 8 else { continue }
+                let red = Int(sample.pixels[offset]), green = Int(sample.pixels[offset + 1]), blue = Int(sample.pixels[offset + 2])
+                channels[0][red] += 1
+                channels[1][green] += 1
+                channels[2][blue] += 1
+                luminance[Int(0.299 * Double(red) + 0.587 * Double(green) + 0.114 * Double(blue))] += 1
+                counted += 1
+            }
+        }
+        guard counted > 0 else { return image }
+        let tables: [[Float]]
+        switch kind {
+        case .autoContrast:
+            let range = percentileRange(luminance, total: counted, low: 0.005, high: 0.995)
+            let table = stretchedTable(low: range.low, high: range.high)
+            tables = [table, table, table]
+        case .autoTone, .autoColor:
+            tables = channels.map { histogram in
+                let range = percentileRange(histogram, total: counted, low: 0.005, high: 0.995)
+                return stretchedTable(low: range.low, high: range.high)
+            }
+        case .equalize:
+            tables = channels.map { equalizedTable($0, total: counted) }
+        default:
+            return image
+        }
+        return image.applyingFilter("CIColorCurves", parameters: curveParameters(tables))
+    }
+
+    private static func percentileRange(_ histogram: [Int], total: Int, low: Double, high: Double)
+        -> (low: Double, high: Double) {
+        let lowTarget = max(1, Int(Double(total) * low))
+        let highTarget = max(lowTarget + 1, Int(Double(total) * high))
+        var cumulative = 0, lowLevel = 0, highLevel = 255
+        for level in 0..<256 {
+            cumulative += histogram[level]
+            if cumulative >= lowTarget { lowLevel = level; break }
+        }
+        cumulative = 0
+        for level in 0..<256 {
+            cumulative += histogram[level]
+            if cumulative >= highTarget { highLevel = level; break }
+        }
+        // A picture already spanning almost nothing has no contrast to stretch.
+        guard highLevel - lowLevel >= 2 else { return (0, 1) }
+        return (Double(lowLevel) / 255, Double(highLevel) / 255)
+    }
+
+    private static func stretchedTable(low: Double, high: Double) -> [Float] {
+        let span = max(1.0 / 255, high - low)
+        return (0...255).map { level in
+            Float(min(1, max(0, (Double(level) / 255 - low) / span)))
+        }
+    }
+
+    private static func equalizedTable(_ histogram: [Int], total: Int) -> [Float] {
+        var cumulative = 0
+        var values = [Int](repeating: 0, count: 256)
+        var first = 0
+        for level in 0..<256 {
+            cumulative += histogram[level]
+            if first == 0, cumulative > 0 { first = cumulative }
+            values[level] = cumulative
+        }
+        let span = max(1, total - first)
+        return (0..<256).map { level in
+            Float(min(1, max(0, Double(values[level] - first) / Double(span))))
+        }
+    }
+
+    /// A color cube of `dimension` steps a channel, each sample passed through `transform`, clamped to the cube.
+    private static func colorCube(dimension: Int = 32,
+                                  _ transform: (Double, Double, Double) -> (Double, Double, Double)) -> Data {
+        var cube = [Float](repeating: 0, count: dimension * dimension * dimension * 4)
+        let step = 1 / Double(dimension - 1)
+        var index = 0
+        for blue in 0..<dimension {
+            for green in 0..<dimension {
+                for red in 0..<dimension {
+                    let (outRed, outGreen, outBlue) = transform(Double(red) * step, Double(green) * step, Double(blue) * step)
+                    cube[index] = Float(min(1, max(0, outRed)))
+                    cube[index + 1] = Float(min(1, max(0, outGreen)))
+                    cube[index + 2] = Float(min(1, max(0, outBlue)))
+                    cube[index + 3] = 1
+                    index += 4
+                }
+            }
+        }
+        return cube.withUnsafeBufferPointer { Data(buffer: $0) }
+    }
+
+    private static func hsv(_ red: Double, _ green: Double, _ blue: Double) -> (hue: Double, saturation: Double, value: Double) {
+        let high = max(red, green, blue), low = min(red, green, blue), delta = high - low
+        var hue = 0.0
+        if delta > 0 {
+            if high == red {
+                hue = 60 * ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
+            } else if high == green {
+                hue = 60 * ((blue - red) / delta + 2)
+            } else {
+                hue = 60 * ((red - green) / delta + 4)
+            }
+        }
+        if hue < 0 { hue += 360 }
+        return (hue, high == 0 ? 0 : delta / high, high)
+    }
+
+    private static func rgb(hue: Double, saturation: Double, value: Double) -> (red: Double, green: Double, blue: Double) {
+        let chroma = value * saturation
+        let section = (hue / 60).truncatingRemainder(dividingBy: 6)
+        let second = chroma * (1 - abs(section.truncatingRemainder(dividingBy: 2) - 1))
+        let match = value - chroma
+        let (red, green, blue): (Double, Double, Double)
+        switch section {
+        case 0..<1: (red, green, blue) = (chroma, second, 0)
+        case 1..<2: (red, green, blue) = (second, chroma, 0)
+        case 2..<3: (red, green, blue) = (0, chroma, second)
+        case 3..<4: (red, green, blue) = (0, second, chroma)
+        case 4..<5: (red, green, blue) = (second, 0, chroma)
+        default: (red, green, blue) = (chroma, 0, second)
+        }
+        return (red + match, green + match, blue + match)
+    }
+
+    private static func hueDistance(_ one: Double, _ other: Double) -> Double {
+        let distance = abs(one - other).truncatingRemainder(dividingBy: 360)
+        return min(distance, 360 - distance)
+    }
+
+    private static func hueDelta(from start: Double, to end: Double) -> Double {
+        var delta = (end - start).truncatingRemainder(dividingBy: 360)
+        if delta > 180 { delta -= 360 }
+        if delta < -180 { delta += 360 }
+        return delta
+    }
+
+    private static func selectiveColorCube(_ settings: FilterSettings) -> Data {
+        let families = SelectiveColorFamily.allCases
+        let amounts = settings.selectiveAmounts
+        return colorCube { red, green, blue in
+            let (hue, saturation, value) = hsv(red, green, blue)
+            var weights = [Double](repeating: 0, count: families.count)
+            if saturation > 0.02 {
+                for (index, family) in families.enumerated() {
+                    guard let middle = family.hue else { continue }
+                    weights[index] = max(0, 1 - hueDistance(hue, middle) / 60) * min(1, saturation * 3)
+                }
+            }
+            let grayness = max(0, 1 - saturation / 0.25)
+            if grayness > 0 {
+                let white = grayness * min(1, max(0, (value - 0.55) / 0.45))
+                let black = grayness * min(1, max(0, (0.45 - value) / 0.45))
+                let neutral = max(0, grayness - white - black)
+                if let index = families.firstIndex(of: .whites) { weights[index] = white }
+                if let index = families.firstIndex(of: .neutrals) { weights[index] = neutral }
+                if let index = families.firstIndex(of: .blacks) { weights[index] = black }
+            }
+            var outRed = red, outGreen = green, outBlue = blue
+            for (index, ink) in amounts.enumerated() where !ink.isIdentity {
+                let weight = weights[index]
+                guard weight > 0 else { continue }
+                outRed -= ink.cyan / 100 * weight
+                outGreen -= ink.magenta / 100 * weight
+                outBlue -= ink.yellow / 100 * weight
+                let darken = max(0, 1 - ink.black / 100 * weight)
+                outRed *= darken
+                outGreen *= darken
+                outBlue *= darken
+            }
+            return (outRed, outGreen, outBlue)
+        }
+    }
+
+    private static func replaceColorCube(_ settings: FilterSettings) -> Data {
+        let target = ((settings.replaceTargetHue.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360)
+        let tolerance = settings.replaceTolerance
+        let destination = settings.replaceHue
+        return colorCube { red, green, blue in
+            let (hue, saturation, value) = hsv(red, green, blue)
+            guard saturation > 0.05, tolerance > 0 else { return (red, green, blue) }
+            let weight = max(0, 1 - hueDistance(hue, target) / tolerance)
+            guard weight > 0 else { return (red, green, blue) }
+            let movedHue = hue + hueDelta(from: target, to: destination) * weight
+            let movedSaturation = min(1, max(0, saturation + settings.replaceSaturation / 100 * weight))
+            let movedValue = min(1, max(0, value + settings.replaceLightness / 100 * weight))
+            let (newRed, newGreen, newBlue) = rgb(hue: movedHue, saturation: movedSaturation, value: movedValue)
+            return (red + (newRed - red) * weight, green + (newGreen - green) * weight, blue + (newBlue - blue) * weight)
+        }
+    }
+
+    /// How much Motion Blur's kernel scales alpha down, as the factor that puts it back: measured on a white
+    /// image at the same radius and angle, so an opaque picture stays fully opaque.
+    private static func motionBlurAlphaGain(radius: CGFloat, angle: CGFloat) -> CGFloat {
+        let probe = CIImage(color: CIColor(red: 1, green: 1, blue: 1)).clampedToExtent()
+        let blurred = probe.applyingFilter("CIMotionBlur", parameters: [
+            kCIInputRadiusKey: radius,
+            kCIInputAngleKey: angle,
+        ])
+        var pixel = [UInt8](repeating: 0, count: 4)
+        PixelAdjust.ciContext.render(blurred, toBitmap: &pixel, rowBytes: 4,
+                                     bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8,
+                                     colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+        let alpha = CGFloat(pixel[3]) / 255
+        return alpha > 0.5 ? 1 / alpha : 1
+    }
+
+    /// Clouds: opaque fractal noise colored between the style's dark and light, at the job's pixels.
+    private static func cloudImage(width: Int, height: Int, job: FilterJob, settings: FilterSettings) throws -> CGImage {
+        let context = try BrushRaster.context(width: width, height: height, mask: false)
+        guard let data = context.data else { throw ExportError.render }
+        noise_clouds(data.assumingMemoryBound(to: UInt8.self), width, height, context.bytesPerRow,
+                     Float(settings.cloudsScale * job.scale), Float(settings.cloudsDetail), settings.cloudsSeed)
+        guard let gray = context.makeImage() else { throw ExportError.render }
+        let dark = settings.cloudsStyle.dark, light = settings.cloudsStyle.light
+        let colored = CIImage(cgImage: gray).applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: light.red - dark.red, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: light.green - dark.green, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: light.blue - dark.blue, w: 0),
+            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+            "inputBiasVector": CIVector(x: dark.red, y: dark.green, z: dark.blue, w: 1),
+        ])
+        return try render(colored, job: job)
+    }
+
+    private static func curveParameters(_ tables: [[Float]]) -> [String: Any] {
+        var data = [Float]()
+        data.reserveCapacity(768)
+        // CIColorCurves reads one RGB triple for each input level: red, green and blue curves interleaved.
+        for index in 0..<256 {
+            for channel in 0..<3 {
+                data.append(tables.indices.contains(channel) ? tables[channel][index] : tables[0][index])
+            }
+        }
+        return [
+            "inputCurvesData": data.withUnsafeBufferPointer { Data(buffer: $0) },
+            "inputCurvesDomain": CIVector(x: 0, y: 1),
+            "inputColorSpace": CGColorSpace(name: CGColorSpace.sRGB)!,
+        ]
     }
 
     /// A filter's preview on an HDR layer's pixels (`hdr`, at the preview's size), made the way OK makes the result: the
@@ -930,6 +2091,18 @@ extension EditorSession {
         guard let edit = filterEdit, edit.repeating else { return }
         await commitFilter()
         // Nothing to apply (a zero amount), or it couldn't be: don't leave it open with no panel to close it.
+        if filterEdit === edit { cancelFilter() }
+    }
+
+    /// Image › Adjustments' one-click commands (Desaturate, Auto Tone, Auto Contrast, Auto Color, Equalize):
+    /// apply with the defaults and no panel, as one undo step.
+    func applyFilterNow(_ kind: FilterKind) async {
+        guard canAdjustColors, filterEdit == nil, hueSaturation == nil else { Platform.beep(); return }
+        if gradientEdit != nil { await commitGradient() }
+        beginFilter(kind, repeating: true)
+        guard let edit = filterEdit, edit.repeating else { return }
+        await commitFilter()
+        // Nothing to apply, or it couldn't be: don't leave the edit open with no panel to close it.
         if filterEdit === edit { cancelFilter() }
     }
 

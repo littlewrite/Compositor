@@ -21,6 +21,7 @@ final class JPEGExportController: UIViewController, UIScrollViewDelegate {
     }
 
     let raster: ExportRaster
+    private let exporter: ImageExporter
     private let share: (Data) -> UIViewController?
     private let cancelled: () -> Void
     private(set) var options: JPEGOptions
@@ -46,8 +47,9 @@ final class JPEGExportController: UIViewController, UIScrollViewDelegate {
     private lazy var exportButton = OptionControls.button("Export…", prominent: true) { [weak self] in self?.export() }
 
     init(raster: ExportRaster, encoded: (result: JPEGResult, options: JPEGOptions)? = nil,
-         share: @escaping (Data) -> UIViewController?, cancelled: @escaping () -> Void) {
+         exporter: ImageExporter = .shared, share: @escaping (Data) -> UIViewController?, cancelled: @escaping () -> Void) {
         self.raster = raster
+        self.exporter = exporter
         self.share = share
         self.cancelled = cancelled
         options = encoded?.options ?? Self.startingOptions
@@ -221,7 +223,7 @@ final class JPEGExportController: UIViewController, UIScrollViewDelegate {
         encoding = Task { [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(200))
-                let encoded = try await ImageExporter.shared.jpeg(raster, options: requested)
+                let encoded = try await exporter.jpeg(raster, options: requested)
                 try Task.checkCancellation()
                 guard let self else { return }
                 self.result = encoded

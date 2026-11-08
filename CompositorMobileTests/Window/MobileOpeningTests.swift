@@ -86,16 +86,20 @@ import UIKit
     @Test func aTabInFrontMakesItsTexturesAsItOpens() async throws {
         let url = try savedProject()
         defer { try? FileManager.default.removeItem(at: url) }
-        let scene = try #require(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
+        // A window in the scene the app is in front in, as another test's window may have left it behind.
+        let host = UIViewController()
+        let window = try await TestHostWindow.show(host, toolbar: false)
+        defer { window.isHidden = true }
         let tab = EditorTab()
-        window.addSubview(tab.canvas)
+        host.view.addSubview(tab.canvas)
+        #expect(tab.canvas.window === window && window.windowScene?.activationState != .background,
+                "canvas in the window, its scene in front: \(String(describing: window.windowScene?.activationState))")
         let sources = CanvasDocument(project: try ProjectStore.readPackage(url)).canvasSources
         #expect(sources.count == 2)
-        #expect(try await tab.open(url).value == sources.count)
+        let made = try await tab.open(url).value
+        #expect(made == sources.count, "made \(made) of \(sources.count)")
         tab.canvas.removeFromSuperview()
         await tab.close()
-        withExtendedLifetime(window) {}
     }
 
     /// A tab behind makes none, and makes them as it's brought forward, as before.
@@ -131,7 +135,7 @@ import UIKit
 
     /// Waits up to a few seconds for `condition`, as the window's own tasks finish.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<250 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(5, condition)
     }
 
     /// Images opened with a project that turns out not to open land in the tab it was given, which stays.

@@ -5,6 +5,10 @@ import Foundation
 @MainActor struct MobileServices {
     var recents = MobileRecentProjects()
     var renderer: GPUCanvasRenderer? = .shared
+    /// The file work a window's exports and image changes go through.
+    var exporter = ImageExporter.shared
+    var imageResizer = ImageResizer.shared
+    var canvasResizer = CanvasResizer.shared
     /// The commands the menu bar holds, which Search Commands finds.
     var commands = CommandRegistry()
     /// Who draws on the canvas: Apple Pencil alone, or fingers too.

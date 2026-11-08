@@ -3,7 +3,7 @@ import UIKit
 /// File › Export As…, as the Mac's sheet: the flattened canvas written as PNG, JPEG, TIFF or PDF, at a size chosen here
 /// without changing the document. Export… makes the file and offers it in the share sheet, as Export JPEG does.
 final class ExportAsController: SizeDialogController {
-    static let formats: [ExportFormat] = [.png, .jpeg, .tiff, .pdf]
+    static let formats: [ExportFormat] = [.png, .jpeg, .tiff, .pdf, .psd]
     static let scaleChoices = ["25%", "50%", "75%", "100%", "200%"]
     /// From the Mac's sheet: a pixel a side, at the most, and no more pixels in all than an export allows.
     static let largestSide = DocumentLimits.maxSide
@@ -99,7 +99,7 @@ final class ExportAsController: SizeDialogController {
         qualitySlider.isHidden = format != .jpeg
         matteWell.superview?.isHidden = !takesBackground
         confirmButton.isEnabled = valid && encoding == nil
-        note.text = valid ? "\(width) × \(height) pixels · " + (format == .png ? "Transparency kept" : "Transparent areas filled")
+        note.text = valid ? "\(width) × \(height) pixels · " + (format == .png || format == .psd ? "Transparency kept" : "Transparent areas filled")
                           : "Use sizes from 1 to \(Self.largestSide.formatted()) pixels a side, and at most "
                             + "\(DocumentLimits.maxSurfaceMegapixels) megapixels in all."
         note.textColor = valid ? .secondaryLabel : .systemOrange
@@ -181,6 +181,8 @@ final class ExportAsController: SizeDialogController {
                     data = try await ImageExporter.shared.tiffData(sized, matte: matte.cgColor).data
                 case .pdf:
                     data = try await ImageExporter.shared.pdfData(sized, background: matte.cgColor)
+                case .psd:
+                    data = try await ImageExporter.shared.psdData(sized)
                 default:
                     return
                 }

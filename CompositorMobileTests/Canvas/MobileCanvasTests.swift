@@ -553,7 +553,7 @@ import UIKit
         }
         // The effects are made on a worker: wait for them, as the canvas does.
         _ = try colors()
-        for _ in 0..<100 where session.effectsPreviews.rendered(id) == nil { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(2) { session.effectsPreviews.rendered(id) != nil }
         // Moved 40 pixels right, as Shift and the Right Arrow key nudge it with the Move tool.
         for _ in 0..<4 { session.nudgeLayer(dx: 10, dy: 0) }
         let before = try colors()
@@ -602,9 +602,7 @@ import UIKit
             await preview(Double(step))
             let changing = try colors()
             #expect(changing.shadow[1] > 0.8, "\(edit.rawValue) step \(step): the shadow doesn't blink off \(changing.shadow)")
-            for _ in 0..<100 where session.effectsPreviews.rendered(id).map({ $0.image === shown }) ?? true {
-                try await Task.sleep(for: .milliseconds(20))
-            }
+            try await TestWait.until(2) { session.effectsPreviews.rendered(id).map { $0.image !== shown } ?? false }
         }
         // Cancel puts the layer back with its effects straight away: those previews didn't push them out.
         switch edit {
@@ -656,7 +654,7 @@ import UIKit
         let expected = points.map { exported(CGPoint(x: 1200, y: $0)) }
         func asExported(_ drawn: [Double]) -> Bool { zip(drawn, expected).allSatisfy { abs($0 - $1) < 0.05 } }
         _ = try green()
-        for _ in 0..<100 where session.effectsPreviews.rendered(id) == nil { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(2) { session.effectsPreviews.rendered(id) != nil }
         let before = try green()
         #expect(asExported(before), "the \(effect.rawValue) before \(before), exported \(expected)")
         session.beginFilter(.gaussianBlur)
@@ -666,9 +664,7 @@ import UIKit
         #expect(edit.previewScale < 0.9, "previewed from a smaller copy: \(edit.previewScale)")
         let shown = session.effectsPreviews.rendered(id)?.image
         _ = try green()
-        for _ in 0..<100 where session.effectsPreviews.rendered(id).map({ $0.image === shown }) ?? true {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        try await TestWait.until(2) { session.effectsPreviews.rendered(id).map { $0.image !== shown } ?? false }
         #expect(session.effectsPreviews.rendered(id)?.image !== shown, "the effects redone around the preview")
         let during = try green()
         #expect(asExported(during), "the \(effect.rawValue) where it was \(during), exported \(expected)")
@@ -712,7 +708,7 @@ import UIKit
         }
         // The effects are made on a worker: wait for them, as the canvas does.
         _ = try drawn()
-        for _ in 0..<100 where session.effectsPreviews.rendered(id) == nil { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(2) { session.effectsPreviews.rendered(id) != nil }
         let green = try drawn()
         let exported = try await exportedGreen(session)
         // Above and below the layer, where an outer glow fades out, and inside its top and bottom edges, where an inner

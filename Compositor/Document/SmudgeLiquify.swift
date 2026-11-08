@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// The Blur tool's modes. Smudge and Liquify push the active layer's pixels around under the brush.
+/// The Blur tool's modes. Smudge and Liquify push the active layer's pixels around, and Sharpen brings out their edges.
 /// The Brush tool's modes.
 nonisolated enum BrushToolMode: String, CaseIterable, Sendable {
     case paint = "Paint"
@@ -12,6 +12,7 @@ nonisolated enum BlurToolMode: String, CaseIterable, Sendable {
     case liquify = "Liquify"
     case blur = "Blur"
     case smudge = "Smudge"
+    case sharpen = "Sharpen"
 }
 
 /// A Smudge or Liquify stroke in progress. It works on the active layer as the canvas shows it, at document size,
@@ -110,9 +111,18 @@ final class WarpStroke {
             let t = CGFloat(step) / CGFloat(steps)
             let next = CGPoint(x: from.x + (point.x - from.x) * t, y: from.y + (point.y - from.y) * t)
             if let gpu {
-                if mode == .smudge { gpu.smudge(at: next, radius: radius, diameter: diameter, hardness: hardness, strength: strength) }
-                else { gpu.push(from: previous, to: next, radius: radius, diameter: diameter, hardness: hardness, strength: strength) }
-            } else if mode == .smudge { smudge(at: next) } else { push(from: previous, to: next) }
+                switch mode {
+                case .smudge: gpu.smudge(at: next, radius: radius, diameter: diameter, hardness: hardness, strength: strength)
+                case .sharpen: gpu.sharpen(at: next, radius: radius, diameter: diameter, hardness: hardness, strength: strength)
+                default: gpu.push(from: previous, to: next, radius: radius, diameter: diameter, hardness: hardness, strength: strength)
+                }
+            } else {
+                switch mode {
+                case .smudge: smudge(at: next)
+                case .sharpen: sharpen(at: next)
+                default: push(from: previous, to: next)
+                }
+            }
             points.append(next)
             previous = next
         }
@@ -168,6 +178,53 @@ final class WarpStroke {
         }
     }
 
+    /// Sharpen: unsharp-masks what's under the brush, most at its center, fading to none at its rim. The dab reads a
+    /// copy, so the neighbors it compares against are the ones from before it, not ones it just sharpened.
+    private func sharpen(at center: CGPoint) {
+        let r = radius
+        let cx = Int(center.x.rounded()), cy = Int(center.y.rounded())
+        let x0 = max(0, cx - r - 1), x1 = min(width - 1, cx + r + 1)
+        let y0 = max(0, cy - r - 1), y1 = min(height - 1, cy + r + 1)
+        guard x0 <= x1, y0 <= y1 else { return }
+        let cw = x1 - x0 + 1, ch = y1 - y0 + 1
+        if scratch.count < cw * ch * 4 { scratch = [Float](repeating: 0, count: cw * ch * 4) }
+        for y in 0..<ch {
+            for x in 0..<cw {
+                let p = ((y + y0) * width + x + x0) * 4, s = (y * cw + x) * 4
+                for k in 0..<4 { scratch[s + k] = Float(pixels[p + k]) }
+            }
+        }
+        let amount = Float(strength) * 2, invR = 1 / Float(diameter / 2)
+        for dy in -r...r {
+            let y = cy + dy
+            guard y >= y0, y <= y1 else { continue }
+            for dx in -r...r {
+                let x = cx + dx
+                guard x >= x0, x <= x1 else { continue }
+                let w = weight(Float(dx * dx + dy * dy).squareRoot() * invR)
+                guard w > 0 else { continue }
+                let bx = x - x0, by = y - y0, s = (by * cw + bx) * 4
+                // The 3×3 average around the pixel; the dab lays down the difference between the pixel and it.
+                var sum = SIMD4<Float>(repeating: 0)
+                var count: Float = 0
+                for ny in max(0, by - 1)...min(ch - 1, by + 1) {
+                    for nx in max(0, bx - 1)...min(cw - 1, bx + 1) {
+                        let n = (ny * cw + nx) * 4
+                        sum += SIMD4<Float>(scratch[n], scratch[n + 1], scratch[n + 2], scratch[n + 3])
+                        count += 1
+                    }
+                }
+                let average = sum / count
+                let p = (y * width + x) * 4
+                for k in 0..<4 {
+                    let value = scratch[s + k]
+                    let sharpened = value + (value - average[k]) * w * amount
+                    pixels[p + k] = UInt8(max(0, min(255, sharpened.rounded())))
+                }
+            }
+        }
+    }
+
     /// Forward warp: pixels under the brush move with it, most at its center, fading to none at its rim.
     private func push(from a: CGPoint, to b: CGPoint) {
         let r = radius
@@ -217,7 +274,7 @@ final class WarpStroke {
 extension EditorSession {
     func beginWarp(at point: CGPoint) {
         guard canPaint, !isMaskSelected, let active = activeLayer, let document else {
-            brushError = isMaskSelected ? "Smudge and Liquify work on a layer's pixels, not its mask." : paintRefusal
+            brushError = isMaskSelected ? "Smudge, Sharpen and Liquify work on a layer's pixels, not its mask." : paintRefusal
             return
         }
         pauseGIFForEditing(for: active.id)

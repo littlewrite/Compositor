@@ -137,7 +137,7 @@ private let presenters = ["Foreground color", "Background color", "Mask color", 
     /// Waits up to ten seconds for `condition`, as the window's own tasks finish: the system's pickers can take a while
     /// to come up the first time.
     private func eventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        try await TestWait.until(10, condition)
     }
 
     /// A window on the app's screen as the app makes one, the editor in a navigation controller whose bar is its toolbar,
@@ -388,7 +388,7 @@ private let presenters = ["Foreground color", "Background color", "Mask color", 
         controller.updatePropertiesIfNeeded()
 
         try #require(button.contextMenuInteraction).dismissMenu()
-        for _ in 0..<2000 where controller.presentedViewController != nil { try await Task.sleep(for: .milliseconds(2)) }
+        try await TestWait.until(4) { controller.presentedViewController == nil }
         try #require(controller.presentedViewController == nil)
         rename.performWithSender(nil, target: nil)
         #expect((controller.presentedViewController as? UIAlertController)?.title == "Rename Layer")
@@ -485,6 +485,32 @@ private let presenters = ["Foreground color", "Background color", "Mask color", 
         try #require(share is UIActivityViewController)
         // Required, as a project left held would hold up closing its tab.
         try #require(!session.isProjectBusy)
+        try await dismissExport(share)
+        await cleanUp(controller)
+    }
+
+    /// The row menu exports the layer as a PNG, named for it as the Mac's Export Layer names it, offered in the share
+    /// sheet while the project is held.
+    @Test func theRowMenuExportsTheLayerAsAPNG() async throws {
+        let (window, controller, tab) = try await shownWindow()
+        defer { window.isHidden = true }
+        let session = tab.session
+        let layer = try #require(session.activeLayerID)
+        session.document?.layers[0].name = "Gray"
+        let panel = try #require(views(LayersPanelView.self, in: controller.view).first)
+        let export = try #require(panel.menu(for: layer, in: session).children
+            .compactMap { ($0 as? UIMenu)?.children }.flatMap { $0 }
+            .compactMap { $0 as? UIAction }.first { $0.title == "Export Layer as PNG…" })
+        #expect(!export.attributes.contains(.disabled))
+        export.performWithSender(nil, target: nil)
+        try await eventually { controller.makingExport != nil }
+        #expect(session.isProjectBusy)
+        await controller.makingExport?.value
+        let share = try await shown(over: controller)
+        try #require(share is UIActivityViewController)
+        let file = try #require(controller.offeredFile)
+        #expect(file.lastPathComponent == "Gray.png")
+        #expect(try Data(contentsOf: file).starts(with: [0x89, 0x50, 0x4E, 0x47]))
         try await dismissExport(share)
         await cleanUp(controller)
     }
